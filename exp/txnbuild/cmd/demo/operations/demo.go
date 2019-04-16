@@ -270,7 +270,7 @@ func payment(source *horizon.Account, dest, amount string, asset txnbuild.Asset,
 }
 
 func deleteTrustline(source *horizon.Account, asset txnbuild.Asset, signer key) (string, error) {
-	deleteTrustline := txnbuild.NewRemoveTrustlineOp(&asset)
+	deleteTrustline := txnbuild.RemoveTrustlineOp(&asset)
 
 	tx := txnbuild.Transaction{
 		SourceAccount: source,
@@ -287,7 +287,7 @@ func deleteTrustline(source *horizon.Account, asset txnbuild.Asset, signer key) 
 }
 
 func deleteOffer(source *horizon.Account, offerID uint64, signer key) (string, error) {
-	deleteOffer := txnbuild.NewDeleteOfferOp(offerID)
+	deleteOffer := txnbuild.DeleteOfferOp(offerID)
 
 	tx := txnbuild.Transaction{
 		SourceAccount: source,
