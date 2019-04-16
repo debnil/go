@@ -2,25 +2,25 @@ package ticker
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
+	"time"
 
 	horizonclient "github.com/stellar/go/exp/clients/horizon"
 	"github.com/stellar/go/exp/ticker/internal/scraper"
 	"github.com/stellar/go/exp/ticker/internal/tickerdb"
 	"github.com/stellar/go/exp/ticker/internal/utils"
+	hlog "github.com/stellar/go/support/log"
 )
 
 // RefreshAssets scrapes the most recent asset list and ingests then into the db.
-func RefreshAssets(s *tickerdb.TickerSession, c *horizonclient.Client) (err error) {
-	finalAssetList, err := scraper.FetchAllAssets(c, 0, 500)
+func RefreshAssets(s *tickerdb.TickerSession, c *horizonclient.Client, l *hlog.Entry) (err error) {
+	sc := scraper.ScraperConfig{
+		Client: c,
+		Logger: l,
+	}
+	finalAssetList, err := sc.FetchAllAssets(0, 500)
 	if err != nil {
 		return
-	}
-
-	err = writeAssetsToFile(finalAssetList, "assets.json")
-	if err != nil {
-		fmt.Println("Could not write assets to file")
 	}
 
 	for _, finalAsset := range finalAssetList {
@@ -30,32 +30,57 @@ func RefreshAssets(s *tickerdb.TickerSession, c *horizonclient.Client) (err erro
 		}
 		issuerID, err := s.InsertOrUpdateIssuer(&dbIssuer, []string{"public_key"})
 		if err != nil {
-			fmt.Println("Error inserting issuer:", dbIssuer, err)
+			l.Error("Error inserting issuer:", dbIssuer, err)
 			continue
 		}
 
 		dbAsset := finalAssetToDBAsset(finalAsset, issuerID)
 		err = s.InsertOrUpdateAsset(&dbAsset, []string{"code", "issuer_account", "issuer_id"})
 		if err != nil {
-			fmt.Println("Error inserting asset:", dbAsset, err)
+			l.Error("Error inserting asset:", dbAsset, err)
 		}
 	}
 
 	return
 }
 
-// writeAssetsToFile creates a list of assets exported in a JSON file.
-func writeAssetsToFile(assets []scraper.FinalAsset, filename string) (err error) {
-	jsonAssets, err := json.MarshalIndent(assets, "", "\t")
+// GenerateAssetsFile generates a file with the info about all valid scraped Assets
+func GenerateAssetsFile(s *tickerdb.TickerSession, l *hlog.Entry, filename string) error {
+	l.Infoln("Retrieving asset data from db...")
+	var assets []Asset
+	validAssets, err := s.GetAllValidAssets()
+	if err != nil {
+		return err
+	}
+
+	for _, dbAsset := range validAssets {
+		asset := dbAssetToAsset(dbAsset)
+		assets = append(assets, asset)
+	}
+	l.Infoln("Asset data successfully retrieved! Writing to: ", filename)
+	assetSummary := AssetSummary{
+		GeneratedAt: utils.TimeToUnixEpoch(time.Now()),
+		Assets:      assets,
+	}
+	numBytes, err := writeAssetSummaryToFile(assetSummary, filename)
+	if err != nil {
+		return err
+	}
+	l.Infof("Wrote %d bytes to %s\n", numBytes, filename)
+	return nil
+}
+
+// writeAssetSummaryToFile creates a list of assets exported in a JSON file.
+func writeAssetSummaryToFile(assetSummary AssetSummary, filename string) (numBytes int, err error) {
+	jsonAssets, err := json.MarshalIndent(assetSummary, "", "\t")
 	if err != nil {
 		return
 	}
 
-	numBytes, err := utils.WriteJSONToFile(jsonAssets, filename)
+	numBytes, err = utils.WriteJSONToFile(jsonAssets, filename)
 	if err != nil {
 		return
 	}
-	fmt.Printf("Wrote %d bytes to %s\n", numBytes, filename)
 	return
 }
 
@@ -91,4 +116,44 @@ func finalAssetToDBAsset(asset scraper.FinalAsset, issuerID int32) tickerdb.Asse
 		Countries:                   asset.Countries,
 		Status:                      asset.Status,
 	}
+}
+
+// dbAssetToAsset converts a tickerdb.Asset to an Asset.
+func dbAssetToAsset(dbAsset tickerdb.Asset) (a Asset) {
+	collAddrs := strings.Split(dbAsset.CollateralAddresses, ",")
+	if len(collAddrs) == 1 && collAddrs[0] == "" {
+		collAddrs = []string{}
+	}
+
+	collAddrSigns := strings.Split(dbAsset.CollateralAddressSignatures, ",")
+	if len(collAddrSigns) == 1 && collAddrSigns[0] == "" {
+		collAddrSigns = []string{}
+	}
+
+	a.Code = dbAsset.Code
+	a.Issuer = dbAsset.IssuerAccount
+	a.Type = dbAsset.Type
+	a.NumAccounts = dbAsset.NumAccounts
+	a.AuthRequired = dbAsset.AuthRequired
+	a.AuthRevocable = dbAsset.AuthRevocable
+	a.Amount = dbAsset.Amount
+	a.AssetControlledByDomain = dbAsset.AssetControlledByDomain
+	a.AnchorAsset = dbAsset.AnchorAssetCode
+	a.AnchorAssetType = dbAsset.AnchorAssetType
+	a.LastValidTimestamp = utils.TimeToUnixEpoch(dbAsset.LastValid)
+	a.DisplayDecimals = dbAsset.DisplayDecimals
+	a.Name = dbAsset.Name
+	a.Desc = dbAsset.Desc
+	a.Conditions = dbAsset.Conditions
+	a.IsAssetAnchored = dbAsset.IsAssetAnchored
+	a.FixedNumber = dbAsset.FixedNumber
+	a.MaxNumber = dbAsset.MaxNumber
+	a.IsUnlimited = dbAsset.IsUnlimited
+	a.RedemptionInstructions = dbAsset.RedemptionInstructions
+	a.CollateralAddresses = collAddrs
+	a.CollateralAddressSignatures = collAddrSigns
+	a.Countries = dbAsset.Countries
+	a.Status = dbAsset.Status
+
+	return
 }

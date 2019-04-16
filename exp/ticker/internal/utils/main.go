@@ -3,7 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"time"
 )
 
 // PanicIfError is an utility function that panics if err != nil
@@ -13,17 +13,21 @@ func PanicIfError(e error) {
 	}
 }
 
-// WriteJSONToFile wrtites a json []byte dump to .tmp/<filename>
+// WriteJSONToFile wrtites a json []byte dump to <filename>
 func WriteJSONToFile(jsonBytes []byte, filename string) (numBytes int, err error) {
-	path := filepath.Join(".", "tmp")
-	_ = os.Mkdir(path, os.ModePerm) // ignore if dir already exists
-
-	f, err := os.Create(filepath.Join(".", "tmp", filename))
+	f, err := os.Create(filename)
 	PanicIfError(err)
 	defer f.Close()
 
 	numBytes, err = f.Write(jsonBytes)
-	f.Sync()
+	if err != nil {
+		return
+	}
+
+	err = f.Sync()
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -48,4 +52,9 @@ func GetAssetString(assetType string, code string, issuer string) string {
 		return "native"
 	}
 	return fmt.Sprintf("%s:%s", code, issuer)
+}
+
+// TimeToTimestamp converts a time.Time into a Unix epoch
+func TimeToUnixEpoch(t time.Time) int64 {
+	return t.UnixNano() / 1000000
 }
