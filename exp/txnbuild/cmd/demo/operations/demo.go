@@ -13,6 +13,7 @@ import (
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/go/keypair"
 )
@@ -403,7 +404,14 @@ func printHorizonError(hError *horizonclient.Error) error {
 	if err != nil {
 		return errors.Wrap(err, "Couldn't read Envelope")
 	}
+
+	// envelopeXDR, err := hError.EnvelopeXDR()
+	// if err != nil {
+	// 	return errors.Wrap(err, "Couldn't read Envelope XDR")
+	// }
+
 	log.Println("TransactionEnvelope XDR:", envelope)
+	// log.Println("TransactionEnvelope XDR 2:", envelopeXDR)
 
 	log.Println("***************")
 	txe := envelope.Tx
@@ -419,7 +427,21 @@ func printHorizonError(hError *horizonclient.Error) error {
 	log.Println("SequenceNumber:", txe.SeqNum)
 	log.Println("TimeBounds:", txe.TimeBounds)
 	log.Println("Memo:", txe.Memo)
+	log.Println("Memo.Type:", txe.Memo.Type)
+	if txe.Memo.Type != xdr.MemoTypeMemoNone {
+		log.Println("Memo.Text:", txe.Memo.Text)
+		log.Println("Memo.Id:", txe.Memo.Id)
+		log.Println("Memo.Hash:", txe.Memo.Hash)
+		log.Println("Memo.RetHash:", txe.Memo.RetHash)
+	}
 	log.Println("Operations:", txe.Operations)
+
+	// Generalise printing for any operation type
+	for _, op := range txe.Operations {
+		log.Println("Operations.SourceAccount:", op.SourceAccount)
+		log.Println("Operations.Body.Type:", op.Body.Type)
+		log.Println("Operations.Body.BumpSequenceOp.BumpTo:", op.Body.BumpSequenceOp.BumpTo)
+	}
 	log.Println("Ext:", txe.Ext)
 
 	// SourceAccount AccountId
@@ -427,6 +449,12 @@ func printHorizonError(hError *horizonclient.Error) error {
 	// SeqNum        SequenceNumber
 	// TimeBounds    *TimeBounds
 	// Memo          Memo
+	// type Memo struct {
+	// 	Type    MemoType
+	// 	Text    *string `xdrmaxsize:"28"`
+	// 	Id      *Uint64
+	// 	Hash    *Hash
+	// 	RetHash *Hash
 	// Operations    []Operation `xdrmaxsize:"100"`
 	// Ext           TransactionExt
 
