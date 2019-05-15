@@ -111,6 +111,9 @@ func addQueryParams(params ...interface{}) string {
 
 // setCurrentServerTime saves the current time returned by a horizon server
 func setCurrentServerTime(host string, serverDate []string) {
+	if len(serverDate) == 0 {
+		return
+	}
 	st, err := time.Parse(time.RFC1123, serverDate[0])
 	if err != nil {
 		return
