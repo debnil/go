@@ -59,7 +59,10 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 	numRemainingMinions := numMinions
 	minionBatchSize := 100
 	for numRemainingMinions > 0 {
-		var ops []txnbuild.Operation
+		var (
+			newMinions []internal.Minion
+			ops        []txnbuild.Operation
+		)
 		// Refresh the sequence number before submitting a new transaction.
 		rerr := botAccount.RefreshSequenceNumber(hclient)
 		if rerr != nil {
@@ -76,7 +79,7 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 			if err != nil {
 				return []internal.Minion{}, errors.Wrap(err, "making keypair")
 			}
-			minions = append(minions, internal.Minion{
+			newMinions = append(newMinions, internal.Minion{
 				Account:           internal.Account{AccountID: minionKeypair.Address()},
 				Keypair:           minionKeypair,
 				BotAccount:        botAccount,
@@ -92,7 +95,6 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 				Amount:      minionBalance,
 			})
 		}
-		numRemainingMinions -= numCreateMinions
 
 		// Build and submit batched account creation tx.
 		txn := txnbuild.Transaction{
@@ -110,6 +112,10 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 			log.Print(resp)
 			return []internal.Minion{}, errors.Wrap(err, "submitting create accounts tx")
 		}
+
+		// Process successful create accounts tx.
+		numRemainingMinions -= numCreateMinions
+		minions = append(minions, newMinions...)
 		log.Printf("Submitted create accounts tx for %d minions successfully", numCreateMinions)
 	}
 	return minions, nil
