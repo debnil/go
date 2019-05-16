@@ -38,7 +38,7 @@ func main() {
 		durations = append(durations, <-durationChannel)
 	}
 	close(durationChannel)
-	log.Printf("Got %d times with average %s", *numRequests, mean(durations))
+	printMean(durations)
 }
 
 func makeFriendbotRequest(address, fbURL string, durationChannel chan maybeDuration) {
@@ -50,12 +50,14 @@ func makeFriendbotRequest(address, fbURL string, durationChannel chan maybeDurat
 	if err != nil {
 		log.Printf("Got post error: %s", err)
 		durationChannel <- maybeDuration{maybeError: errors.Wrap(err, "posting form")}
+		return
 	}
 	var result map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		log.Printf("Got decode error: %s", err)
 		durationChannel <- maybeDuration{maybeError: errors.Wrap(err, "decoding json")}
+		return
 	}
 	timeTrack(start, "makeFriendbotRequest", durationChannel)
 }
@@ -66,7 +68,7 @@ func timeTrack(start time.Time, name string, durationChannel chan maybeDuration)
 	durationChannel <- maybeDuration{maybeDuration: elapsed}
 }
 
-func mean(durations []maybeDuration) time.Duration {
+func printMean(durations []maybeDuration) {
 	var total time.Duration
 	count := 0
 	for _, d := range durations {
@@ -76,5 +78,6 @@ func mean(durations []maybeDuration) time.Duration {
 		total += d.maybeDuration
 		count++
 	}
-	return total / time.Duration(count)
+	mean := total / time.Duration(count)
+	log.Printf("Got %d times with average %s", count, mean)
 }

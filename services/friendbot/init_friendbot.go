@@ -102,9 +102,10 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 		}
 		resp, err := hclient.SubmitTransactionXDR(txe)
 		if err != nil {
-			log.Print(resp)
+			log.Printf("Submit create minions tx response: %v", resp)
 			return []internal.Minion{}, errors.Wrap(err, "submitting create accounts tx")
 		}
+		log.Printf("Submit create minions tx response: %v", resp)
 	}
 	return minions, nil
 }
