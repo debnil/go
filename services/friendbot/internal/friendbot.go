@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"log"
+
 	hProtocol "github.com/stellar/go/protocols/horizon"
 )
 
@@ -19,6 +21,7 @@ type SubmitResult struct {
 
 // Pay funds the account at `destAddress`.
 func (bot *Bot) Pay(destAddress string) (*hProtocol.TransactionSuccess, error) {
+	log.Printf("Selecting minion %d of length %d", bot.nextMinionIndex, len(bot.Minions))
 	minion := bot.Minions[bot.nextMinionIndex]
 	resultChan := make(chan SubmitResult)
 	go minion.Run(destAddress, resultChan)
