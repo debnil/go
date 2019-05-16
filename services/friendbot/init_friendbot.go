@@ -42,11 +42,15 @@ func initFriendbot(
 	botKeypair := botKP.(*keypair.Full)
 	botAccount := internal.Account{AccountID: botKeypair.Address()}
 	minionBalance := "101.00"
+	if numMinions == 0 {
+		numMinions = 1000
+	}
+	log.Printf("Found all valid params, now creating %d minions", numMinions)
 	minions, err := createMinionAccounts(botAccount, botKeypair, networkPassphrase, startingBalance, minionBalance, numMinions, hclient)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating minion accounts")
 	}
-
+	log.Printf("Adding %d minions to friendbot", len(minions))
 	return &internal.Bot{Minions: minions}, nil
 }
 
@@ -66,6 +70,7 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 		if numRemainingMinions < minionBatchSize {
 			numCreateMinions = numRemainingMinions
 		}
+		log.Printf("Creating %d new minion accounts", numCreateMinions)
 		for i := 0; i < numCreateMinions; i++ {
 			minionKeypair, err := keypair.Random()
 			if err != nil {
@@ -105,6 +110,7 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 			log.Print(resp)
 			return []internal.Minion{}, errors.Wrap(err, "submitting create accounts tx")
 		}
+		log.Printf("Submitted create accounts tx for %d minions successfully", numCreateMinions)
 	}
 	return minions, nil
 }

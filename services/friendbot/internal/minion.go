@@ -53,11 +53,19 @@ func (minion *Minion) Run(destAddress string, resultChan chan SubmitResult) {
 func SubmitTransaction(minion *Minion, hclient *horizonclient.Client, tx string) (*hProtocol.TransactionSuccess, error) {
 	result, err := hclient.SubmitTransactionXDR(tx)
 	if err != nil {
+		errStr := "submitting tx to horizon"
 		switch e := err.(type) {
 		case *horizonclient.Error:
 			minion.checkHandleBadSequence(e)
+			resCode, resErr := e.ResultCodes()
+			if resErr != nil {
+				errStr += ": horizon error code: " + resCode.TransactionCode
+			} else {
+				errStr += ": error getting horizon error code: " + resErr.Error()
+			}
+			return nil, errors.New(errStr)
 		}
-		return nil, errors.Wrap(err, "submitting tx to horizon")
+		return nil, errors.Wrap(err, errStr)
 	}
 	return &result, nil
 }
