@@ -57,8 +57,8 @@ func createMinionAccounts(botAccount internal.Account, botKeypair *keypair.Full,
 	for numRemainingMinions > 0 {
 		var ops []txnbuild.Operation
 		// Refresh the sequence number before submitting a new transaction.
-		err := botAccount.RefreshSequenceNumber(hclient)
-		if err != nil {
+		rerr := botAccount.RefreshSequenceNumber(hclient)
+		if rerr != nil {
 			return nil, errors.Wrap(err, "refreshing bot seqnum")
 		}
 		// The tx will create min(numRemainingMinions, 100) Minion accounts.
