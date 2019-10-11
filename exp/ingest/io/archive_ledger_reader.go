@@ -4,13 +4,14 @@ import (
 	"io"
 	"sync"
 
-	"github.com/stellar/go/support/historyarchive"
+	"github.com/stellar/go/exp/ingest/ledgerbackend"
+	"github.com/stellar/go/support/errors"
 
 	"github.com/stellar/go/xdr"
 )
 
-// TODO: Determine if we need a separate interface at all.
 // ArchiveLedgerReader provides access to transactions within a ledger from the history archive.
+// TODO: Determine if we need a separate interface at all.
 type ArchiveLedgerReader interface {
 	GetSequence() uint32
 	GetHeader() xdr.LedgerHeaderHistoryEntry
@@ -24,11 +25,8 @@ type ArchiveLedgerReader interface {
 // TransactionsArchiveLedgerReader implements the io.ArchiveLedgerReader interface.
 // TODO: Rename TransactionsArchiveLedgerReader.
 type TransactionsArchiveLedgerReader struct {
-	sequence uint32
-	// TODO: Do we want an Archive object here, or do we need a custom ArchiveBackend?
-	// The former allows for direct access to the archives, but the latter can be used
-	// for some level of abstraction above those.
-	archive      historyarchive.Archive
+	sequence     uint32
+	backend      ledgerbackend.ArchiveLedgerBackend
 	header       xdr.LedgerHeaderHistoryEntry
 	transactions []LedgerTransaction
 	readIdx      int
@@ -38,6 +36,21 @@ type TransactionsArchiveLedgerReader struct {
 
 // Ensure TransactionsArchiveLedgerReader implements ArchiveLedgerReader.
 var _ ArchiveLedgerReader = (*TransactionsArchiveLedgerReader)(nil)
+
+// NewTransactionsArchiveLedgerReader is a factory method for TransactionsArchiveLedgerReader.
+func NewTransactionsArchiveLedgerReader(sequence uint32, backend ledgerbackend.ArchiveLedgerBackend) (*TransactionsArchiveLedgerReader, error) {
+	reader := &TransactionsArchiveLedgerReader{
+		sequence: sequence,
+		backend:  backend,
+	}
+
+	var err error
+	reader.initOnce.Do(func() { err = reader.init() })
+	if err != nil {
+		return nil, err
+	}
+	return reader, nil
+}
 
 // GetSequence returns the sequence number of the ledger data stored by this object.
 func (talr *TransactionsArchiveLedgerReader) GetSequence() uint32 {
@@ -85,6 +98,29 @@ func (talr *TransactionsArchiveLedgerReader) Close() error {
 
 // Init pulls data from thee archive backend to set up this object.
 func (talr *TransactionsArchiveLedgerReader) init() error {
-	// TODO: Initialize state using archive.
+	exists, ledgerCloseMeta, err := talr.backend.GetLedger(talr.sequence)
+	if err != nil {
+		return errors.Wrap(err, "error reading ledger from backend")
+	}
+
+	if !exists {
+		return ErrNotFound
+	}
+	talr.header = ledgerCloseMeta.LedgerHeader
+	talr.storeTransactions(ledgerCloseMeta)
 	return nil
+}
+
+// storeTransactions maps the close meta data into a slice of LedgerTransaction structs.
+// This provides a per-transaction view of the data when Read() is called.
+func (talr *TransactionsArchiveLedgerReader) storeTransactions(lcm ledgerbackend.LedgerCloseMeta) {
+	for i := range lcm.TransactionEnvelope {
+		talr.transactions = append(talr.transactions, LedgerTransaction{
+			Index:      uint32(i + 1), // Transactions start at '1'
+			Envelope:   lcm.TransactionEnvelope[i],
+			Result:     lcm.TransactionResult[i],
+			Meta:       lcm.TransactionMeta[i],
+			FeeChanges: lcm.TransactionFeeChanges[i],
+		})
+	}
 }
