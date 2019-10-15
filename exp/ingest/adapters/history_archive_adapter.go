@@ -70,5 +70,12 @@ func (haa *HistoryArchiveAdapter) GetState(sequence uint32, tempSet io.TempSet) 
 
 // GetLedger gets a ledger transaction result at the provided sequence number
 func (haa *HistoryArchiveAdapter) GetLedger(sequence uint32) (io.ArchiveLedgerReader, error) {
+	exists, err := haa.archive.CategoryCheckpointExists("transactions", sequence)
+	if err != nil {
+		return nil, errors.Wrap(err, "error checking if category checkpoint exists")
+	}
+	if !exists {
+		return nil, fmt.Errorf("transactions checkpoint does not exist for ledger %d", sequence)
+	}
 	return nil, fmt.Errorf("not implemented yet")
 }
