@@ -24,7 +24,10 @@ type ArchiveLedgerReader interface {
 // TransactionsArchiveLedgerReader implements the io.ArchiveLedgerReader interface.
 // TODO: Rename TransactionsArchiveLedgerReader.
 type TransactionsArchiveLedgerReader struct {
-	sequence     uint32
+	sequence uint32
+	// TODO: Do we want an Archive object here, or do we need a custom ArchiveBackend?
+	// The former allows for direct access to the archives, but the latter can be used
+	// for some level of abstraction above those.
 	archive      historyarchive.Archive
 	header       xdr.LedgerHeaderHistoryEntry
 	transactions []LedgerTransaction
