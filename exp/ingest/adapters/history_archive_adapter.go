@@ -77,5 +77,6 @@ func (haa *HistoryArchiveAdapter) GetLedger(sequence uint32) (io.ArchiveLedgerRe
 	if !exists {
 		return nil, fmt.Errorf("transactions checkpoint does not exist for ledger %d", sequence)
 	}
+
 	return nil, fmt.Errorf("not implemented yet")
 }

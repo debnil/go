@@ -1,13 +1,30 @@
 package ledgerbackend
 
-import "github.com/stellar/go/support/historyarchive"
+import (
+	"sync"
+
+	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/historyarchive"
+)
 
 // Ensure ArchiveLedgerBackend implements LedgerBackend.
 var _ LedgerBackend = (*ArchiveLedgerBackend)(nil)
 
+// readResult is the result of reading a category file.
+// TODO: Figure out the fields that get populated.
+type readResult struct {
+	e error
+}
+
 // ArchiveLedgerBackend implements a history archive data store.
 type ArchiveLedgerBackend struct {
-	archive *historyarchive.Archive
+	archive   *historyarchive.Archive
+	tempStore TempSet
+	// TODO: Check if we need a `sequence` field for a singular sequence number.
+	readChan   chan readResult
+	streamOnce sync.Once
+	closeOnce  sync.Once
+	done       chan bool
 }
 
 // NewArchiveLedgerBackend is a factory method
@@ -40,5 +57,27 @@ func (alb *ArchiveLedgerBackend) GetLedger(sequence uint32) (bool, LedgerCloseMe
 // Close disconnects from the history archives.
 // TODO: Implement.
 func (alb *ArchiveLedgerBackend) Close() error {
+	alb.closeOnce.Do(alb.close)
 	return nil
+}
+
+func (alb *ArchiveLedgerBackend) streamCategory() {
+	defer func() {
+		err := alb.tempStore.Close()
+		if err != nil {
+			alb.readChan <- alb.error(errors.New("Error closing tempStore"))
+		}
+		alb.closeOnce.Do(alb.close)
+		close(alb.readChan)
+	}()
+
+}
+
+func (alb *ArchiveLedgerBackend) error(err error) readResult {
+	// TODO: Fill in the actual result type.
+	return readResult{err}
+}
+
+func (alb *ArchiveLedgerBackend) close() {
+	close(alb.done)
 }
