@@ -9,12 +9,6 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-// ArchiveLedgerReader placeholder
-// type ArchiveLedgerReader interface {
-// 	GetSequence() uint32
-// 	Read() (bool, xdr.Transaction, xdr.TransactionResult, error)
-// }
-
 // TODO: Determine if we need a separate interface at all.
 // ArchiveLedgerReader provides access to transactions within a ledger from the history archive.
 type ArchiveLedgerReader interface {
