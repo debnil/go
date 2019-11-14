@@ -31,10 +31,10 @@ func NewStatePipelineSession() (*ingest.SingleLedgerSession, error) {
 // NewStatePipeline returns a state pipeline.
 func NewStatePipeline() *pipeline.StatePipeline {
 	sp := &pipeline.StatePipeline{}
-	prettyPrintEntryProcessor := &PrettyPrintEntryProcessor{}
+	esProcessor := &ESProcessor{}
 
 	sp.SetRoot(
-		pipeline.StateNode(prettyPrintEntryProcessor),
+		pipeline.StateNode(esProcessor),
 	)
 	return sp
 }

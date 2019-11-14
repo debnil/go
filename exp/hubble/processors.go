@@ -8,25 +8,30 @@ import (
 	stdio "io"
 
 	"github.com/stellar/go/exp/ingest/io"
+	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
 	supportPipeline "github.com/stellar/go/exp/support/pipeline"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/xdr"
 )
 
-// PrettyPrintEntryProcessor reads and pretty prints account entries.
-// Note that now, it prints the first encountered example of an entry, to allow
+// ESProcessor serializes ledger change entries as JSONs and writes them
+// to an ElasticSearch cluster. For now, it only writes 25 examples of each entry
 // for quicker debugging and testing of our printing process.
-type PrettyPrintEntryProcessor struct{}
+type ESProcessor struct{}
+
+var _ ingestPipeline.StateProcessor = &ESProcessor{}
 
 // Reset is a no-op for this processor.
-func (p *PrettyPrintEntryProcessor) Reset() {}
+func (p *ESProcessor) Reset() {}
 
-// ProcessState reads, prints, and writes all changes to ledger state.
-func (p *PrettyPrintEntryProcessor) ProcessState(ctx context.Context, store *supportPipeline.Store, r io.StateReader, w io.StateWriter) error {
+// ProcessState reads, prints, and writes changes to ledger state to ElasticSearch.
+// Right now, that is limited to 25 entries of each ledger entry type.
+func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.Store, r io.StateReader, w io.StateWriter) error {
 	defer w.Close()
 	defer r.Close()
 
-	entryTypeSet := make(map[string]bool)
+	numEntries := 0
+	entriesCountDict := make(map[string]int)
 	for {
 		entry, err := r.Read()
 		if err != nil {
@@ -37,8 +42,8 @@ func (p *PrettyPrintEntryProcessor) ProcessState(ctx context.Context, store *sup
 			}
 		}
 
-		// If we have found an example of each of the 4 ledger entry types, exit.
-		if len(entryTypeSet) == 4 {
+		// If we have found 100 total entries, exit the loop.
+		if numEntries == 100 {
 			break
 		}
 
@@ -48,14 +53,19 @@ func (p *PrettyPrintEntryProcessor) ProcessState(ctx context.Context, store *sup
 			continue
 		}
 
-		// If we've already seen an example of this entry, we break,
-		// as we only wish to print a single example now.
+		// Ensure that we have up to 25 examples of each of the 4 ledger
+		// entry types.
 		entryType := entry.EntryType().String()
-		if entryTypeSet[entryType] {
-			continue
+		if currEntryCount, ok := entriesCountDict[entryType]; ok {
+			if currEntryCount == 25 {
+				continue
+			}
+			entriesCountDict[entryType]++
 		} else {
-			entryTypeSet[entryType] = true
+			entriesCountDict[entryType] = 1
 		}
+		numEntries++
+
 		bytes, err := serializeLedgerEntryChange(entry)
 		if err != nil {
 			return errors.Wrap(err, "converting ledgerentry to json")
@@ -70,11 +80,14 @@ func (p *PrettyPrintEntryProcessor) ProcessState(ctx context.Context, store *sup
 		}
 	}
 
-	fmt.Printf("Found %d entries\n", len(entryTypeSet))
+	fmt.Printf("Found %d total entries\n", numEntries)
+	for entryType, numTypeEntries := range entriesCountDict {
+		fmt.Printf("Entry Type %s has %d examples\n", entryType, numTypeEntries)
+	}
 	return nil
 }
 
 // Name returns the processor name.
-func (p *PrettyPrintEntryProcessor) Name() string {
-	return "PrettyPrintEntryProcessor"
+func (p *ESProcessor) Name() string {
+	return "ESProcessor"
 }
