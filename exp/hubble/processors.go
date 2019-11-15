@@ -117,7 +117,7 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 		}
 		entryJsonStr := fmt.Sprintf("%s\n", entryJsonBytes)
 
-		// Put entry as JSON in database.
+		// Put entry as JSON in ElasticSearch.
 		entryId := strconv.Itoa(numEntries)
 		_, err = client.Index().Index(p.index).Id(entryId).BodyString(entryJsonStr).Do(ctx)
 		if err != nil {
