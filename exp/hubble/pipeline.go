@@ -5,22 +5,19 @@ package hubble
 import (
 	"github.com/stellar/go/exp/ingest"
 	"github.com/stellar/go/exp/ingest/pipeline"
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/historyarchive"
 )
 
 const archivesURL = "http://history.stellar.org/prd/core-live/core_live_001/"
 
 // NewStatePipelineSession runs a single ledger session.
-func NewStatePipelineSession() (*ingest.SingleLedgerSession, error) {
-	archive, err := historyarchive.Connect(
-		archivesURL,
-		historyarchive.ConnectOptions{},
-	)
+func NewStatePipelineSession(esUrl string) (*ingest.SingleLedgerSession, error) {
+	archive, err := newArchive()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "creating archive")
 	}
-
-	statePipeline := NewStatePipeline()
+	statePipeline := newStatePipeline(esUrl)
 	session := &ingest.SingleLedgerSession{
 		Archive:       archive,
 		StatePipeline: statePipeline,
@@ -28,10 +25,22 @@ func NewStatePipelineSession() (*ingest.SingleLedgerSession, error) {
 	return session, nil
 }
 
-// NewStatePipeline returns a state pipeline.
-func NewStatePipeline() *pipeline.StatePipeline {
+func newArchive() (*historyarchive.Archive, error) {
+	archive, err := historyarchive.Connect(
+		archivesURL,
+		historyarchive.ConnectOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return archive, nil
+}
+
+func newStatePipeline(esUrl string) *pipeline.StatePipeline {
 	sp := &pipeline.StatePipeline{}
-	esProcessor := &ESProcessor{}
+	esProcessor := &ESProcessor{
+		url: esUrl,
+	}
 
 	sp.SetRoot(
 		pipeline.StateNode(esProcessor),

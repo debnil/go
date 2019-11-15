@@ -7,6 +7,7 @@ import (
 	"fmt"
 	stdio "io"
 
+	"github.com/olivere/elastic"
 	"github.com/stellar/go/exp/ingest/io"
 	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
 	supportPipeline "github.com/stellar/go/exp/support/pipeline"
@@ -17,18 +18,41 @@ import (
 // ESProcessor serializes ledger change entries as JSONs and writes them
 // to an ElasticSearch cluster. For now, it only writes 25 examples of each entry
 // for quicker debugging and testing of our printing process.
-type ESProcessor struct{}
+type ESProcessor struct {
+	url string
+}
 
 var _ ingestPipeline.StateProcessor = &ESProcessor{}
 
 // Reset is a no-op for this processor.
 func (p *ESProcessor) Reset() {}
 
+func (p *ESProcessor) NewESClient(ctx context.Context) (*elastic.Client, error) {
+	// TODO: Configure the client using ESProcessor.url.
+	client, err := elastic.NewClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "creating es client")
+	}
+
+	// Ping server to get version number.
+	info, code, err := client.Ping(p.url).Do(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "pinging es client")
+	}
+	fmt.Printf("ElasticSearch returned with code %d and version %s\n", code, info.Version.Number)
+	return client, nil
+}
+
 // ProcessState reads, prints, and writes changes to ledger state to ElasticSearch.
 // Right now, that is limited to 25 entries of each ledger entry type.
 func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.Store, r io.StateReader, w io.StateWriter) error {
 	defer w.Close()
 	defer r.Close()
+
+	_, err := p.NewESClient(ctx)
+	if err != nil {
+		return errors.Wrap(err, "getting new es client")
+	}
 
 	numEntries := 0
 	entriesCountDict := make(map[string]int)
@@ -70,6 +94,8 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 		if err != nil {
 			return errors.Wrap(err, "converting ledgerentry to json")
 		}
+
+		// TODO: Change the below to writing to ES.
 		fmt.Printf("%s\n", bytes)
 
 		select {
