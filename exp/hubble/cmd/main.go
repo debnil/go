@@ -9,8 +9,8 @@ import (
 	"github.com/stellar/go/exp/hubble"
 )
 
-// If no configuration settings are provided, we assume that the user
-// is running a standard local ElasticSearch setup.
+// If no configuration settings are provided, the default is that
+// the user is running a standard local ElasticSearch setup.
 const elasticSearchDefaultUrl = "http://127.0.0.1:9200"
 
 // Set a default generic index for ElasticSearch.
