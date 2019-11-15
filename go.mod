@@ -49,7 +49,7 @@ require (
 	github.com/moul/http2curl v0.0.0-20161031194548-4e24498b31db // indirect
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077 // indirect
 	github.com/olivere/elastic v6.2.26+incompatible
-	github.com/olivere/elastic/v7 v7.0.9 // indirect
+	github.com/olivere/elastic/v7 v7.0.9
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
 	github.com/pkg/errors v0.8.1

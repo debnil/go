@@ -6,8 +6,9 @@ import (
 	"context"
 	"fmt"
 	stdio "io"
+	"strconv"
 
-	"github.com/olivere/elastic"
+	"github.com/olivere/elastic/v7"
 	"github.com/stellar/go/exp/ingest/io"
 	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
 	supportPipeline "github.com/stellar/go/exp/support/pipeline"
@@ -19,7 +20,8 @@ import (
 // to an ElasticSearch cluster. For now, it only writes 25 examples of each entry
 // for quicker debugging and testing of our printing process.
 type ESProcessor struct {
-	url string
+	url   string
+	index string
 }
 
 var _ ingestPipeline.StateProcessor = &ESProcessor{}
@@ -27,20 +29,33 @@ var _ ingestPipeline.StateProcessor = &ESProcessor{}
 // Reset is a no-op for this processor.
 func (p *ESProcessor) Reset() {}
 
-func (p *ESProcessor) NewESClient(ctx context.Context) (*elastic.Client, error) {
-	// TODO: Configure the client using ESProcessor.url.
-	client, err := elastic.NewClient()
+func (p *ESProcessor) newESClient(ctx context.Context) (*elastic.Client, error) {
+	client, err := elastic.NewClient(
+		elastic.SetURL(p.url),
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating es client")
+		return nil, errors.Wrap(err, "creating elasticsearch client")
 	}
 
-	// Ping server to get version number.
-	info, code, err := client.Ping(p.url).Do(ctx)
+	_, _, err = client.Ping(p.url).Do(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "pinging es client")
+		return nil, errors.Wrap(err, "pinging elasticsearch server")
 	}
-	fmt.Printf("ElasticSearch returned with code %d and version %s\n", code, info.Version.Number)
 	return client, nil
+}
+
+func (p *ESProcessor) createIndexIfNotExists(ctx context.Context, client *elastic.Client) error {
+	exists, err := client.IndexExists(p.index).Do(ctx)
+	if err != nil {
+		return errors.Wrap(err, "checking elasticsearch index existence")
+	}
+	if exists {
+		return nil
+	}
+
+	_, err = client.CreateIndex(p.index).Do(ctx)
+	return errors.Wrap(err, "creating elasticsearch index")
+
 }
 
 // ProcessState reads, prints, and writes changes to ledger state to ElasticSearch.
@@ -49,9 +64,14 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 	defer w.Close()
 	defer r.Close()
 
-	_, err := p.NewESClient(ctx)
+	client, err := p.newESClient(ctx)
 	if err != nil {
-		return errors.Wrap(err, "getting new es client")
+		return errors.Wrap(err, "getting new elasticsearch client")
+	}
+
+	err = p.createIndexIfNotExists(ctx, client)
+	if err != nil {
+		return errors.Wrap(err, "checking and creating elasticsearch index")
 	}
 
 	numEntries := 0
@@ -90,13 +110,19 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 		}
 		numEntries++
 
-		bytes, err := serializeLedgerEntryChange(entry)
+		// Convert entry to JSON-ified string.
+		entryJsonBytes, err := serializeLedgerEntryChange(entry)
 		if err != nil {
 			return errors.Wrap(err, "converting ledgerentry to json")
 		}
+		entryJsonStr := fmt.Sprintf("%s\n", entryJsonBytes)
 
-		// TODO: Change the below to writing to ES.
-		fmt.Printf("%s\n", bytes)
+		// Put entry as JSON in database.
+		entryId := strconv.Itoa(numEntries)
+		_, err = client.Index().Index(p.index).Id(entryId).BodyString(entryJsonStr).Do(ctx)
+		if err != nil {
+			return errors.Wrap(err, "putting entry in elasticsearch")
+		}
 
 		select {
 		case <-ctx.Done():

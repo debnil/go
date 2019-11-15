@@ -12,12 +12,12 @@ import (
 const archivesURL = "http://history.stellar.org/prd/core-live/core_live_001/"
 
 // NewStatePipelineSession runs a single ledger session.
-func NewStatePipelineSession(esUrl string) (*ingest.SingleLedgerSession, error) {
+func NewStatePipelineSession(esUrl, esIndex string) (*ingest.SingleLedgerSession, error) {
 	archive, err := newArchive()
 	if err != nil {
 		return nil, errors.Wrap(err, "creating archive")
 	}
-	statePipeline := newStatePipeline(esUrl)
+	statePipeline := newStatePipeline(esUrl, esIndex)
 	session := &ingest.SingleLedgerSession{
 		Archive:       archive,
 		StatePipeline: statePipeline,
@@ -36,10 +36,11 @@ func newArchive() (*historyarchive.Archive, error) {
 	return archive, nil
 }
 
-func newStatePipeline(esUrl string) *pipeline.StatePipeline {
+func newStatePipeline(esUrl, esIndex string) *pipeline.StatePipeline {
 	sp := &pipeline.StatePipeline{}
 	esProcessor := &ESProcessor{
-		url: esUrl,
+		url:   esUrl,
+		index: esIndex,
 	}
 
 	sp.SetRoot(
