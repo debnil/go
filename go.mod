@@ -20,7 +20,6 @@ require (
 	github.com/getsentry/raven-go v0.0.0-20160805001729-c9d3cc542ad1
 	github.com/go-chi/chi v3.1.5+incompatible
 	github.com/go-errors/errors v0.0.0-20150906023321-a41850380601
-	github.com/go-ini/ini v1.23.0 // indirect
 	github.com/gobuffalo/packr v1.12.1 // indirect
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/gomodule/redigo v2.0.0+incompatible
@@ -48,7 +47,6 @@ require (
 	github.com/mndrix/ps v0.0.0-20131111202200-33ddf69629c1 // indirect
 	github.com/moul/http2curl v0.0.0-20161031194548-4e24498b31db // indirect
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077 // indirect
-	github.com/olivere/elastic v6.2.26+incompatible
 	github.com/olivere/elastic/v7 v7.0.9
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
@@ -88,9 +86,7 @@ require (
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c // indirect
 	google.golang.org/appengine v1.6.1 // indirect
-	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/gavv/httpexpect.v1 v1.0.0-20170111145843-40724cf1e4a0
-	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/gorp.v1 v1.7.1 // indirect
 	gopkg.in/tylerb/graceful.v1 v1.2.13
 )
