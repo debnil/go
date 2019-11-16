@@ -19,10 +19,14 @@ const elasticSearchDefaultIndex = "testindex"
 func main() {
 	esUrlPtr := flag.String("esurl", elasticSearchDefaultUrl, "URL of running ElasticSearch server")
 	esIndexPtr := flag.String("esindex", elasticSearchDefaultIndex, "index for ElasticSearch")
+	flag.Parse()
 	fmt.Println("Running the pipeline to serialize XDR entries...")
 	session, err := hubble.NewStatePipelineSession(*esUrlPtr, *esIndexPtr)
 	if err != nil {
 		panic(err)
 	}
-	session.Run()
+	err = session.Run()
+	if err != nil {
+		panic(err)
+	}
 }

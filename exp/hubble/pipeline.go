@@ -3,6 +3,9 @@
 package hubble
 
 import (
+	"context"
+
+	"github.com/olivere/elastic/v7"
 	"github.com/stellar/go/exp/ingest"
 	"github.com/stellar/go/exp/ingest/pipeline"
 	"github.com/stellar/go/support/errors"
@@ -15,9 +18,12 @@ const archivesURL = "http://history.stellar.org/prd/core-live/core_live_001/"
 func NewStatePipelineSession(esUrl, esIndex string) (*ingest.SingleLedgerSession, error) {
 	archive, err := newArchive()
 	if err != nil {
-		return nil, errors.Wrap(err, "creating archive")
+		return nil, errors.Wrap(err, "couldn't create archive")
 	}
-	statePipeline := newStatePipeline(esUrl, esIndex)
+	statePipeline, err := newStatePipeline(esUrl, esIndex)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't create state pipeline")
+	}
 	session := &ingest.SingleLedgerSession{
 		Archive:       archive,
 		StatePipeline: statePipeline,
@@ -36,15 +42,46 @@ func newArchive() (*historyarchive.Archive, error) {
 	return archive, nil
 }
 
-func newStatePipeline(esUrl, esIndex string) *pipeline.StatePipeline {
+func newStatePipeline(esUrl, esIndex string) (*pipeline.StatePipeline, error) {
 	sp := &pipeline.StatePipeline{}
+	client, err := newClientWithIndex(esUrl, esIndex)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't create new elasticsearch client")
+	}
 	esProcessor := &ESProcessor{
-		url:   esUrl,
+		client: client,
 		index: esIndex,
 	}
-
 	sp.SetRoot(
 		pipeline.StateNode(esProcessor),
 	)
-	return sp
+	return sp, nil
+}
+
+func newClientWithIndex(esUrl, esIndex string) (*elastic.Client, error) {
+	client, err := elastic.NewClient(
+		elastic.SetURL(esUrl),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't create elasticsearch client")
+	}
+
+	ctx := context.Background()
+	_, _, err = client.Ping(esUrl).Do(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't ping elasticsearch server")
+	}
+
+	exists, err := client.IndexExists(esIndex).Do(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't check elasticsearch index existence")
+	}
+
+	if !exists {
+		_, err = client.CreateIndex(esIndex).Do(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't create elasticsearch index")
+		}
+	}
+	return client, nil
 }
