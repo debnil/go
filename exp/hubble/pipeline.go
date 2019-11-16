@@ -46,7 +46,7 @@ func newStatePipeline(esUrl, esIndex string) (*pipeline.StatePipeline, error) {
 	sp := &pipeline.StatePipeline{}
 	client, err := newClientWithIndex(esUrl, esIndex)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't create new elasticsearch client")
+		return nil, errors.Wrap(err, "couldn't create new es client and index")
 	}
 	esProcessor := &ESProcessor{
 		client: client,
@@ -63,24 +63,24 @@ func newClientWithIndex(esUrl, esIndex string) (*elastic.Client, error) {
 		elastic.SetURL(esUrl),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't create elasticsearch client")
+		return nil, errors.Wrap(err, "couldn't create es client")
 	}
 
 	ctx := context.Background()
 	_, _, err = client.Ping(esUrl).Do(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't ping elasticsearch server")
+		return nil, errors.Wrap(err, "couldn't ping es server")
 	}
 
 	exists, err := client.IndexExists(esIndex).Do(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't check elasticsearch index existence")
+		return nil, errors.Wrap(err, "couldn't check es index existence")
 	}
 
 	if !exists {
 		_, err = client.CreateIndex(esIndex).Do(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "couldn't create elasticsearch index")
+			return nil, errors.Wrap(err, "couldn't create es index")
 		}
 	}
 	return client, nil
