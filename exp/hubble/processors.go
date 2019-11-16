@@ -78,6 +78,7 @@ func (p *ESProcessor) Name() string {
 	return "ESProcessor"
 }
 
+// PutEntry puts a ledger entry in ElasticSearch.
 func (p *ESProcessor) PutEntry(ctx context.Context, entry string, id int) error {
 	idStr := strconv.Itoa(id)
 	_, err := p.client.Index().Index(p.index).Id(idStr).BodyString(entry).Do(ctx)
