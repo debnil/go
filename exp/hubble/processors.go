@@ -16,8 +16,7 @@ import (
 )
 
 // ESProcessor serializes ledger change entries as JSONs and writes them
-// to an ElasticSearch cluster. For now, it only writes 25 examples of each entry
-// for quicker debugging and testing of our printing process.
+// to an ElasticSearch cluster.
 type ESProcessor struct {
 	client *elastic.Client
 	index  string
@@ -29,13 +28,11 @@ var _ ingestPipeline.StateProcessor = &ESProcessor{}
 func (p *ESProcessor) Reset() {}
 
 // ProcessState reads, prints, and writes changes to ledger state to ElasticSearch.
-// Right now, that is limited to 25 entries of each ledger entry type.
 func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.Store, r io.StateReader, w io.StateWriter) error {
 	defer w.Close()
 	defer r.Close()
 
 	numEntries := 0
-	entriesCountDict := make(map[string]int)
 	for {
 		entry, err := r.Read()
 		if err != nil {
@@ -73,9 +70,6 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 	}
 
 	fmt.Printf("Found %d total entries\n", numEntries)
-	for entryType, numTypeEntries := range entriesCountDict {
-		fmt.Printf("Entry Type %s has %d examples\n", entryType, numTypeEntries)
-	}
 	return nil
 }
 
