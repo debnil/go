@@ -20,7 +20,7 @@ import (
 // for quicker debugging and testing of our printing process.
 type ESProcessor struct {
 	client *elastic.Client
-	index string
+	index  string
 }
 
 var _ ingestPipeline.StateProcessor = &ESProcessor{}

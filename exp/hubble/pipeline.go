@@ -50,7 +50,7 @@ func newStatePipeline(esUrl, esIndex string) (*pipeline.StatePipeline, error) {
 	}
 	esProcessor := &ESProcessor{
 		client: client,
-		index: esIndex,
+		index:  esIndex,
 	}
 	sp.SetRoot(
 		pipeline.StateNode(esProcessor),
