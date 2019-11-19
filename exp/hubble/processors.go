@@ -33,6 +33,10 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 	defer r.Close()
 
 	numEntries := 0
+	// TODO: Delete the intermediate debugging state.
+	// entrySet := make(map[string]struct{})
+	// exists := struct{}{}
+	accountStateSet := make(map[string]accountState)
 	for {
 		entry, err := r.Read()
 		if err != nil {
@@ -43,23 +47,52 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 			}
 		}
 
-		// Step 1: convert entry to JSON-ified string.
-		// TODO: Move this to a separate processor. Currently, this is not possible,
-		// as the ingestion system does not read and write custom structs
-		// between pipeline nodes.
-		entryJsonStr, err := serializeLedgerEntryChange(entry)
-		if err != nil {
-			return errors.Wrap(err, "couldn't convert ledgerentry to json")
+		if numEntries == 10 {
+			break
 		}
 
-		// Step 2: Augment the JSON-fied data.
-		// TODO: Implement Step 2 as a separate processor.
-
-		// Step 3: put entry as JSON in ElasticSearch.
-		err = p.PutEntry(ctx, entryJsonStr, numEntries)
+		accountID, err := getAccountID(entry)
 		if err != nil {
-			return errors.Wrap(err, "couldn't put entry json in elasticsearch")
+			return errors.Wrap(err, "could not get ledger account")
 		}
+		accountIDStr := accountID.Address()
+		// fmt.Printf("Found account ID %s\n", accountIDStr)
+		if currentAccountState, ok := accountStateSet[accountIDStr]; ok {
+			entryJSONStr, err := xdrEntryToJSONStr(entry)
+			if err != nil {
+				return errors.Wrap(err, "couldn't convert ledgerentry to json")
+			}
+			fmt.Println(entryJSONStr)
+			fmt.Printf("%s\n", currentAccountState.String())
+			err = currentAccountState.updateAccountState(entry)
+			if err != nil {
+				return err
+			}
+			numEntries++
+		} else {
+			var state accountState
+			state.updateAccountState(entry)
+			accountStateSet[accountIDStr] = state
+		}
+
+		// // Step 1: convert entry to JSON-ified string.
+		// // TODO: Move this to a separate processor. Currently, this is not possible,
+		// // as the ingestion system does not read and write custom structs
+		// // between pipeline nodes.
+		// entryJSONStr, err := xdrEntryToJSONStr(entry)
+		// if err != nil {
+		// 	return errors.Wrap(err, "couldn't convert ledgerentry to json")
+		// }
+
+		// // Step 2: Augment the JSON-fied data.
+		// // TODO: Implement Step 2 as a separate processor.
+
+		// // Step 3: put entry as JSON in ElasticSearch.
+		// // TODO: Uncomment the Elasticsearch put operation.
+		// err = p.PutEntry(ctx, entryJSONStr, numEntries)
+		// if err != nil {
+		// 	return errors.Wrap(err, "couldn't put entry json in elasticsearch")
+		// }
 
 		select {
 		case <-ctx.Done():

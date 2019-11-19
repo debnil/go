@@ -44,12 +44,13 @@ func newArchive() (*historyarchive.Archive, error) {
 
 func newStatePipeline(esUrl, esIndex string) (*pipeline.StatePipeline, error) {
 	sp := &pipeline.StatePipeline{}
-	client, err := newClientWithIndex(esUrl, esIndex)
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't create new es client and index")
-	}
+	// TODO: Uncomment the below, remove the `nil` value.
+	// client, err := newClientWithIndex(esUrl, esIndex)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "couldn't create new es client and index")
+	// }
 	esProcessor := &ESProcessor{
-		client: client,
+		client: nil,
 		index:  esIndex,
 	}
 	sp.SetRoot(
