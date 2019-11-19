@@ -14,10 +14,19 @@ type accountState struct {
 	lastModifiedLedgerSeq uint32
 	balance               int64
 	signers               []xdr.Signer
+	trustlines            []trustline
 	// TODO: May want to track other fields in AccountEntry.
 	// TODO: Track trustlines.
 	// TODO: Track offers.
 	// TODO: Track data.
+}
+
+type trustline struct {
+	asset      string
+	balance    uint64
+	limit      uint64
+	authorized bool
+	// TODO: Add liabilities.
 }
 
 // TODO: Do not hand roll serialization.
@@ -29,6 +38,11 @@ func (state *accountState) String() string {
 	returnStr += fmt.Sprintf("\tsigners: {\n")
 	for _, signer := range state.signers {
 		returnStr += fmt.Sprintf("\t\tsig: key %s, weight %d\n", signer.Key.Address(), signer.Weight)
+	}
+	returnStr += "\t}\n"
+	returnStr += fmt.Sprintf("\ttrustlines: {\n")
+	for _, trustline := range state.trustlines {
+		returnStr += fmt.Sprintf("\t\ttrustline: %v\n", trustline)
 	}
 	returnStr += "\t}\n}\n"
 	return returnStr
