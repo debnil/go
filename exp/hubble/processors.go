@@ -56,7 +56,6 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 			return errors.Wrap(err, "could not get ledger account")
 		}
 		accountIDStr := accountID.Address()
-		// fmt.Printf("Found account ID %s\n", accountIDStr)
 		if currentAccountState, ok := accountStateSet[accountIDStr]; ok {
 			entryJSONStr, err := xdrEntryToJSONStr(entry)
 			if err != nil {
