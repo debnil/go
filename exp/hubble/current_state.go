@@ -14,17 +14,16 @@ type accountState struct {
 	lastModifiedLedgerSeq uint32
 	balance               int64
 	signers               []xdr.Signer
-	trustlines            []trustline
+	trustlines            map[string]trustline
 	// TODO: May want to track other fields in AccountEntry.
-	// TODO: Track trustlines.
 	// TODO: Track offers.
 	// TODO: Track data.
 }
 
 type trustline struct {
 	asset      string
-	balance    uint64
-	limit      uint64
+	balance    int64
+	limit      int64
 	authorized bool
 	// TODO: Add liabilities.
 }
@@ -67,6 +66,10 @@ func (state *accountState) updateAccountState(change xdr.LedgerEntryChange) erro
 	err = state.setSigners(change)
 	if err != nil {
 		return errors.Wrap(err, "could not set signers")
+	}
+	err = state.updateTrustlines(change)
+	if err != nil {
+		return errors.Wrap(err, "could not update trustlines")
 	}
 	// TODO: Update data, offers, trustlines.
 	return nil
@@ -155,8 +158,45 @@ func getAccountEntry(change xdr.LedgerEntryChange) (*xdr.AccountEntry, error) {
 		account = change.MustUpdated().Data.MustAccount()
 	case xdr.LedgerEntryChangeTypeLedgerEntryState:
 		account = change.MustState().Data.MustAccount()
+	case xdr.LedgerEntryChangeTypeLedgerEntryRemoved:
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("Unknown entry type: %v", entryType)
 	}
 	return &account, nil
+}
+
+func (state *accountState) updateTrustlines(change xdr.LedgerEntryChange) error {
+	if change.EntryType() != xdr.LedgerEntryTypeTrustline {
+		return nil
+	}
+
+	if change.Type == xdr.LedgerEntryChangeTypeLedgerEntryRemoved {
+		asset := change.MustRemoved().TrustLine.Asset.String()
+		state.trustlines[asset] = nil
+		return nil
+	}
+
+	var trustlineEntry xdr.TrustLineEntry
+	switch entryType := change.Type; entryType {
+	case xdr.LedgerEntryChangeTypeLedgerEntryCreated:
+		trustlineEntry = change.MustCreated().Data.MustTrustLine()
+	case xdr.LedgerEntryChangeTypeLedgerEntryUpdated:
+		trustlineEntry = change.MustUpdated().Data.MustTrustLine()
+	case xdr.LedgerEntryChangeTypeLedgerEntryState:
+		trustlineEntry = change.MustState().Data.MustTrustLine()
+	default:
+		return fmt.Errorf("Unknown entry type: %v", entryType)
+	}
+
+	assetKey := trustlineEntry.Asset.String()
+	newTrustline := trustline{
+		asset:      assetKey,
+		balance:    int64(trustlineEntry.Balance),
+		limit:      int64(trustlineEntry.Limit),
+		authorized: (trustlineEntry.Flags != 0),
+	}
+
+	state.trustlines[assetKey] = newTrustline
+	return nil
 }
