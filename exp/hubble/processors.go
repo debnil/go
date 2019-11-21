@@ -14,6 +14,7 @@ import (
 	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
 	supportPipeline "github.com/stellar/go/exp/support/pipeline"
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/xdr"
 )
 
 // ESProcessor serializes ledger change entries as JSONs and writes them
@@ -101,9 +102,6 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 	defer w.Close()
 	defer r.Close()
 
-	// TODO: Remove the debug counters.
-	numEntries := 0
-	updatedEntries := 0
 	for {
 		entry, err := r.Read()
 		if err != nil {
@@ -114,19 +112,12 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 			}
 		}
 
-		// TODO: Remove debug.
-		if numEntries >= 10 && updatedEntries >= 10 {
-			break
-		}
-
 		accountID, err := getAccountID(entry)
 		if err != nil {
 			return errors.Wrap(err, "could not get ledger account")
 		}
 
 		if state, ok := p.ledgerState[accountID.Address()]; ok {
-			oldStateStr := fmt.Sprintf("%# v", pretty.Formatter(state))
-			entryJSON, err := serializeLedgerEntryChange(entry)
 			if err != nil {
 				return errors.Wrap(err, "could not serialize entry")
 			}
@@ -134,20 +125,7 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 			if err != nil {
 				return errors.Wrap(err, "could not update account state")
 			}
-			newStateStr := fmt.Sprintf("%# v", pretty.Formatter(state))
 			p.ledgerState[accountID.Address()] = state
-
-			// TODO: Remove the below for debugging.
-			// Adjust the condition for printing.
-			printCondition := true
-			if printCondition {
-				fmt.Println("Printing update to old entry...")
-				fmt.Println(oldStateStr)
-				fmt.Println(entryJSON)
-				fmt.Println(newStateStr)
-				numEntries++
-			}
-
 		} else {
 			var state accountState
 			err = state.updateAccountState(entry)
@@ -155,15 +133,6 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 				return errors.Wrap(err, "could not update account state")
 			}
 			p.ledgerState[accountID.Address()] = state
-
-			// TODO: Remove the below for debugging.
-			// Adjust the condition for printing.
-			printCondition := true
-			if printCondition {
-				fmt.Println("Printing new entry...")
-				fmt.Println(state.String())
-				updatedEntries++
-			}
 		}
 
 		select {
@@ -173,6 +142,7 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 			continue
 		}
 	}
+	fmt.Printf("%# v", pretty.Formatter(p.ledgerState))
 	return nil
 }
 
@@ -184,4 +154,21 @@ func (p *CurrentStateProcessor) Reset() {
 // Name returns the name of the processor.
 func (p *CurrentStateProcessor) Name() string {
 	return "CSProcessor"
+}
+
+func getAccountID(change xdr.LedgerEntryChange) (xdr.AccountId, error) {
+	key := change.LedgerKey()
+	var accountID xdr.AccountId
+	switch keyType := key.Type; keyType {
+	case xdr.LedgerEntryTypeAccount:
+		return key.MustAccount().AccountId, nil
+	case xdr.LedgerEntryTypeTrustline:
+		return key.MustTrustLine().AccountId, nil
+	case xdr.LedgerEntryTypeOffer:
+		return key.MustOffer().SellerId, nil
+	case xdr.LedgerEntryTypeData:
+		return key.MustData().AccountId, nil
+	default:
+		return accountID, fmt.Errorf("Unknown entry type: %v", keyType)
+	}
 }

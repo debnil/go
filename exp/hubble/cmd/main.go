@@ -4,10 +4,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/stellar/go/exp/hubble"
-	"github.com/stellar/go/exp/ingest"
-	"github.com/stellar/go/exp/ingest/pipeline"
 	"github.com/stellar/go/support/errors"
 )
 
@@ -34,10 +33,11 @@ func main() {
 		panic(errors.Errorf("invalid pipeline type %s, must be 'current' or 'state'", *pipelineTypePtr))
 	}
 
-	session, err := NewStatePipelineSession(*pipelineTypePtr, *esURLPtr, *esIndexPtr)
+	session, err := hubble.NewStatePipelineSession(*pipelineTypePtr, *esURLPtr, *esIndexPtr)
 	if err != nil {
 		panic(errors.Wrap(err, "could not make new state pipeline session"))
 	}
+	fmt.Printf("Running state pipeline session of type %s\n", *pipelineTypePtr)
 	err = session.Run()
 	if err != nil {
 		panic(errors.Wrap(err, "could not run session"))

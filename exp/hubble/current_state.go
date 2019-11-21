@@ -8,7 +8,6 @@ import (
 )
 
 type accountState struct {
-	address    string
 	seqnum     uint32
 	balance    int64
 	signers    []signer
@@ -45,43 +44,9 @@ type offer struct {
 	// TODO: Add flags.
 }
 
-// TODO: Do not hand roll serialization.
-// Pretty printing means we can delete this.
-func (state *accountState) String() string {
-	returnStr := "{\n"
-	returnStr += fmt.Sprintf("\taddress: %s\n", state.address)
-	returnStr += fmt.Sprintf("\tseqnum: %d\n", state.seqnum)
-	returnStr += fmt.Sprintf("\tbalance: %d\n", state.balance)
-	returnStr += fmt.Sprintf("\tsigners: {\n")
-	for _, signer := range state.signers {
-		returnStr += fmt.Sprintf("\t\tsig: key %s, weight %d\n", signer.address, signer.weight)
-	}
-	returnStr += "\t}\n"
-	returnStr += fmt.Sprintf("\ttrustlines: {\n")
-	for _, trustline := range state.trustlines {
-		returnStr += fmt.Sprintf("\t\ttrustline: %v\n", trustline)
-	}
-	returnStr += "\t}\n"
-	returnStr += fmt.Sprintf("\toffers: {\n")
-	for _, offer := range state.offers {
-		returnStr += fmt.Sprintf("\t\toffer:%v\n", offer)
-	}
-	returnStr += "\t}\n"
-	returnStr += fmt.Sprintf("\tdata: {\n")
-	for k, v := range state.data {
-		returnStr += fmt.Sprintf("\t\t%s:%s\n", k, v)
-	}
-	returnStr += "\t}\n}\n"
-	return returnStr
-}
-
 func (state *accountState) updateAccountState(change xdr.LedgerEntryChange) error {
 	// TODO: Properly handle Removed Account changes.
-	err := state.setID(change)
-	if err != nil {
-		return errors.Wrap(err, "could not set account id")
-	}
-	err = state.setSeqnum(change)
+	err := state.setSeqnum(change)
 	if err != nil {
 		return errors.Wrap(err, "could not set seqnum")
 	}
@@ -108,15 +73,6 @@ func (state *accountState) updateAccountState(change xdr.LedgerEntryChange) erro
 	return nil
 }
 
-func (state *accountState) setID(change xdr.LedgerEntryChange) error {
-	accountID, err := getAccountID(change)
-	if err != nil {
-		return err
-	}
-	state.address = accountID.Address()
-	return nil
-}
-
 func (state *accountState) setSeqnum(change xdr.LedgerEntryChange) error {
 	var seqnum xdr.Uint32
 	switch entryType := change.Type; entryType {
@@ -136,23 +92,6 @@ func (state *accountState) setSeqnum(change xdr.LedgerEntryChange) error {
 	}
 	state.seqnum = uint32(seqnum)
 	return nil
-}
-
-func getAccountID(change xdr.LedgerEntryChange) (xdr.AccountId, error) {
-	key := change.LedgerKey()
-	var accountID xdr.AccountId
-	switch keyType := key.Type; keyType {
-	case xdr.LedgerEntryTypeAccount:
-		return key.MustAccount().AccountId, nil
-	case xdr.LedgerEntryTypeTrustline:
-		return key.MustTrustLine().AccountId, nil
-	case xdr.LedgerEntryTypeOffer:
-		return key.MustOffer().SellerId, nil
-	case xdr.LedgerEntryTypeData:
-		return key.MustData().AccountId, nil
-	default:
-		return accountID, fmt.Errorf("Unknown entry type: %v", keyType)
-	}
 }
 
 func (state *accountState) setBalance(change xdr.LedgerEntryChange) error {
@@ -292,6 +231,7 @@ func (state *accountState) updateOffers(change xdr.LedgerEntryChange) error {
 	offerID := int64(offerEntry.OfferId)
 	newOffer := offer{
 		id:         offerID,
+		seller:     offerEntry.SellerId.Address(),
 		selling:    offerEntry.Selling.String(),
 		buying:     offerEntry.Buying.String(),
 		amount:     int64(offerEntry.Amount),
