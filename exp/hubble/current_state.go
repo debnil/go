@@ -17,9 +17,6 @@ type accountState struct {
 	// TODO: May want to track other fields in AccountEntry.
 }
 
-// TODO: Determine if it's easiest to use custom structs,
-// goxdr structs, or the original XDRs. Custom structs have been
-// chosen so we can use basic types, enabling easiest serialization.
 type signer struct {
 	address string
 	weight  uint32
@@ -115,7 +112,6 @@ func (state *accountState) setSigners(change xdr.LedgerEntryChange) error {
 		return nil
 	}
 
-	// TODO: Check if we need a custom signer struct.
 	// TODO: Determine more efficient process to update signers.
 	var newSigners []signer
 	for _, accountSigner := range account.Signers {
@@ -181,7 +177,6 @@ func (state *accountState) updateTrustlines(change xdr.LedgerEntryChange) error 
 		return fmt.Errorf("Unknown entry type: %v", entryType)
 	}
 
-	// TODO: Check if we need a custom struct for trustlines.
 	assetKey := trustlineEntry.Asset.String()
 	newTrustline := trustline{
 		asset:      assetKey,
@@ -227,7 +222,6 @@ func (state *accountState) updateOffers(change xdr.LedgerEntryChange) error {
 		return fmt.Errorf("Unknown entry type: %v", entryType)
 	}
 
-	// TODO: Check if we need a custom struct for offers.
 	offerID := int64(offerEntry.OfferId)
 	newOffer := offer{
 		id:         offerID,
