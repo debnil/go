@@ -8,6 +8,7 @@ import (
 	stdio "io"
 	"strconv"
 
+	"github.com/kr/pretty"
 	"github.com/olivere/elastic/v7"
 	"github.com/stellar/go/exp/ingest/io"
 	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
@@ -85,4 +86,102 @@ func (p *ESProcessor) PutEntry(ctx context.Context, entry string, id int) error 
 	idStr := strconv.Itoa(id)
 	_, err := p.client.Index().Index(p.index).Id(idStr).BodyString(entry).Do(ctx)
 	return err
+}
+
+// CurrentStateProcessor stores only the current state of each account
+// on the ledger.
+type CurrentStateProcessor struct {
+	ledgerState map[string]accountState
+}
+
+var _ ingestPipeline.StateProcessor = &CurrentStateProcessor{}
+
+// ProcessState updates the global state using current entries.
+func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *supportPipeline.Store, r io.StateReader, w io.StateWriter) error {
+	defer w.Close()
+	defer r.Close()
+
+	// TODO: Remove the debug counters.
+	numEntries := 0
+	updatedEntries := 0
+	for {
+		entry, err := r.Read()
+		if err != nil {
+			if err == stdio.EOF {
+				break
+			} else {
+				return err
+			}
+		}
+
+		// TODO: Remove debug.
+		if numEntries >= 10 && updatedEntries >= 10 {
+			break
+		}
+
+		accountID, err := getAccountID(entry)
+		if err != nil {
+			return errors.Wrap(err, "could not get ledger account")
+		}
+
+		if state, ok := p.ledgerState[accountID.Address()]; ok {
+			oldStateStr := fmt.Sprintf("%# v", pretty.Formatter(state))
+			entryJSON, err := serializeLedgerEntryChange(entry)
+			if err != nil {
+				return errors.Wrap(err, "could not serialize entry")
+			}
+			err = state.updateAccountState(entry)
+			if err != nil {
+				return errors.Wrap(err, "could not update account state")
+			}
+			newStateStr := fmt.Sprintf("%# v", pretty.Formatter(state))
+			p.ledgerState[accountID.Address()] = state
+
+			// TODO: Remove the below for debugging.
+			// Adjust the condition for printing.
+			printCondition := true
+			if printCondition {
+				fmt.Println("Printing update to old entry...")
+				fmt.Println(oldStateStr)
+				fmt.Println(entryJSON)
+				fmt.Println(newStateStr)
+				numEntries++
+			}
+
+		} else {
+			var state accountState
+			err = state.updateAccountState(entry)
+			if err != nil {
+				return errors.Wrap(err, "could not update account state")
+			}
+			p.ledgerState[accountID.Address()] = state
+
+			// TODO: Remove the below for debugging.
+			// Adjust the condition for printing.
+			printCondition := true
+			if printCondition {
+				fmt.Println("Printing new entry...")
+				fmt.Println(state.String())
+				updatedEntries++
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			continue
+		}
+	}
+	return nil
+}
+
+// Reset makes the internal ledger state an empty map.
+func (p *CurrentStateProcessor) Reset() {
+	p.ledgerState = make(map[string]accountState)
+}
+
+// Name returns the name of the processor.
+func (p *CurrentStateProcessor) Name() string {
+	return "CSProcessor"
 }
