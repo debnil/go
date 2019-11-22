@@ -14,6 +14,14 @@ import (
 
 const archivesURL = "http://history.stellar.org/prd/core-live/core_live_001/"
 
+// PipelineDefaultType is the default type of state pipeline.
+// This will just collect and store the current ledger state in memory.
+const PipelineDefaultType = "currentState"
+
+// PipelineSearchType is the other choice for type of state pipeline.
+// This state pipeline writes entries to a running Elasticsearch instance.
+const PipelineSearchType = "elasticSearch"
+
 // NewStatePipelineSession returns a single ledger state session.
 func NewStatePipelineSession(pipelineType, esURL, esIndex string) (*ingest.SingleLedgerSession, error) {
 	archive, err := newArchive()
@@ -21,12 +29,12 @@ func NewStatePipelineSession(pipelineType, esURL, esIndex string) (*ingest.Singl
 		return nil, errors.Wrap(err, "could not create archive")
 	}
 	var statePipeline *pipeline.StatePipeline
-	if pipelineType == "search" {
+	if pipelineType == PipelineSearchType {
 		statePipeline, err = newElasticSearchPipeline(esURL, esIndex)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create elastic search pipeline")
 		}
-	} else if pipelineType == "current" {
+	} else if pipelineType == PipelineDefaultType {
 		statePipeline, err = newCurrentStatePipeline()
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create current state pipeline")

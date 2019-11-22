@@ -14,7 +14,6 @@ import (
 	ingestPipeline "github.com/stellar/go/exp/ingest/pipeline"
 	supportPipeline "github.com/stellar/go/exp/support/pipeline"
 	"github.com/stellar/go/support/errors"
-	"github.com/stellar/go/xdr"
 )
 
 // ESProcessor serializes ledger change entries as JSONs and writes them
@@ -112,28 +111,16 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 			}
 		}
 
-		accountID, err := getAccountID(entry)
+		accountID, err := getAccountID(&entry)
 		if err != nil {
-			return errors.Wrap(err, "could not get ledger account")
+			return errors.Wrap(err, "could not get ledger account address")
 		}
-
-		if state, ok := p.ledgerState[accountID.Address()]; ok {
-			if err != nil {
-				return errors.Wrap(err, "could not serialize entry")
-			}
-			err = state.updateAccountState(entry)
-			if err != nil {
-				return errors.Wrap(err, "could not update account state")
-			}
-			p.ledgerState[accountID.Address()] = state
-		} else {
-			var state accountState
-			err = state.updateAccountState(entry)
-			if err != nil {
-				return errors.Wrap(err, "could not update account state")
-			}
-			p.ledgerState[accountID.Address()] = state
+		currentState := p.ledgerState[accountID]
+		newState, err := makeNewAccountState(&currentState, &entry)
+		if err != nil {
+			return errors.Wrap(err, "could not update account state")
 		}
+		p.ledgerState[accountID] = *newState
 
 		select {
 		case <-ctx.Done():
@@ -154,21 +141,4 @@ func (p *CurrentStateProcessor) Reset() {
 // Name returns the name of the processor.
 func (p *CurrentStateProcessor) Name() string {
 	return "CSProcessor"
-}
-
-func getAccountID(change xdr.LedgerEntryChange) (xdr.AccountId, error) {
-	key := change.LedgerKey()
-	var accountID xdr.AccountId
-	switch keyType := key.Type; keyType {
-	case xdr.LedgerEntryTypeAccount:
-		return key.MustAccount().AccountId, nil
-	case xdr.LedgerEntryTypeTrustline:
-		return key.MustTrustLine().AccountId, nil
-	case xdr.LedgerEntryTypeOffer:
-		return key.MustOffer().SellerId, nil
-	case xdr.LedgerEntryTypeData:
-		return key.MustData().AccountId, nil
-	default:
-		return accountID, fmt.Errorf("Unknown entry type: %v", keyType)
-	}
 }
