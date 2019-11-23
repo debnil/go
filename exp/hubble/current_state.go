@@ -183,6 +183,7 @@ func getTrustlines(state *accountState, change *xdr.LedgerEntryChange) (map[stri
 		if _, ok := trustlines[asset]; ok {
 			delete(trustlines, asset)
 		}
+		return trustlines, nil
 	}
 
 	// Get and store the new trustline.
