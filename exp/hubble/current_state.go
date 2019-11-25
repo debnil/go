@@ -83,6 +83,12 @@ func makeNewAccountState(state *accountState, change *xdr.LedgerEntryChange) (*a
 	}
 	newAccountState.offers = offers
 
+	data, err := getData(state, change)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not update data")
+	}
+	newAccountState.data = data
+
 	return &newAccountState, nil
 }
 
@@ -264,7 +270,7 @@ func getData(state *accountState, change *xdr.LedgerEntryChange) (map[string][]b
 		return state.data, nil
 	}
 
-	var data map[string][]byte
+	data := make(map[string][]byte)
 	for k, v := range state.data {
 		data[k] = v
 	}

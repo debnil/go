@@ -341,31 +341,186 @@ func TestGetTrustlinesNotTrustline(t *testing.T) {
 	}
 }
 
-// func TestGetTrustlinesRemoved(t *testing.T) {
-// 	originalTrustlines := make(map[string]trustline)
-// 	assetCode := "USD"
-// 	assetIssuer := "GBDT3K42LOPSHNAEHEJ6AVPADIJ4MAR64QEKKW2LQPBSKLYD22KUEH4P"
-// 	newTrustline := trustline{
-// 		asset:   assetCode,
-// 		balance: uint32(10),
-// 		limit:   uint32(100),
-// 	}
-// 	originalTrustlines[asset] = newTrustline
+func TestGetTrustlinesRemoved(t *testing.T) {
+	originalTrustlines := make(map[string]trustline)
+	assetCode := "USD"
+	assetIssuer := "GBDT3K42LOPSHNAEHEJ6AVPADIJ4MAR64QEKKW2LQPBSKLYD22KUEH4P"
+	newTrustline := trustline{
+		asset:   assetCode,
+		balance: uint32(10),
+		limit:   uint32(100),
+	}
+	asset := xdr.MustNewCreditAsset(assetCode, assetIssuer)
 
-// 	// wantAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
-// 	assetIssuerAccountID, err := xdr.AddressToAccountId(assetIssuer)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	originalTrustlines[asset.String()] = newTrustline
+	state := accountState{trustlines: originalTrustlines}
 
-// 	change := xdr.LedgerEntryChange{
-// 		Type: xdr.LedgerEntryChangeTypeLedgerEntryRemoved,
-// 		Removed: &xdr.LedgerKey{
-// 			Type: xdr.LedgerEntryTypeTrustline,
-// 			Trustline: xdr.LedgerKeyTrustLine{
-// 				AccountId: assetIssuerAccountID,
-// 				Asset:     xdr.MustNewCreditAsset(assetCode, assetIssuer),
-// 			},
-// 		},
-// 	}
-// }
+	// wantAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
+	assetIssuerAccountID, err := xdr.AddressToAccountId(assetIssuer)
+	if err != nil {
+		t.Error(err)
+	}
+
+	change := xdr.LedgerEntryChange{
+		Type: xdr.LedgerEntryChangeTypeLedgerEntryRemoved,
+		Removed: &xdr.LedgerKey{
+			Type: xdr.LedgerEntryTypeTrustline,
+			TrustLine: &xdr.LedgerKeyTrustLine{
+				AccountId: assetIssuerAccountID,
+				Asset:     asset,
+			},
+		},
+	}
+	wantTrustlines := make(map[string]trustline)
+	gotTrustlines, err := getTrustlines(&state, &change)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !assert.Equal(t, wantTrustlines, gotTrustlines) {
+		t.Fatalf("got trustlines %v, want nil trustlines", gotTrustlines)
+	}
+}
+
+func TestGetTrustlinesChanged(t *testing.T) {
+	assetCode := "USD"
+	assetIssuer := "GBDT3K42LOPSHNAEHEJ6AVPADIJ4MAR64QEKKW2LQPBSKLYD22KUEH4P"
+	asset := xdr.MustNewCreditAsset(assetCode, assetIssuer)
+	assetString := asset.String()
+
+	originalBalance := 10
+	limit := 100
+	originalTrustline := trustline{
+		asset:   assetString,
+		balance: uint32(originalBalance),
+		limit:   uint32(limit),
+	}
+	originalTrustlines := make(map[string]trustline)
+	originalTrustlines[assetString] = originalTrustline
+	state := accountState{trustlines: originalTrustlines}
+
+	assetIssuerAccountID, err := xdr.AddressToAccountId(assetIssuer)
+	if err != nil {
+		t.Error(err)
+	}
+	newBalance := 20
+	change := xdr.LedgerEntryChange{
+		Type: xdr.LedgerEntryChangeTypeLedgerEntryState,
+		State: &xdr.LedgerEntry{
+			Data: xdr.LedgerEntryData{
+				Type: xdr.LedgerEntryTypeTrustline,
+				TrustLine: &xdr.TrustLineEntry{
+					AccountId: assetIssuerAccountID,
+					Asset:     asset,
+					Balance:   xdr.Int64(newBalance),
+					Limit:     xdr.Int64(limit),
+				},
+			},
+		},
+	}
+
+	wantTrustlines := make(map[string]trustline)
+	newTrustline := trustline{
+		asset:   assetString,
+		balance: uint32(newBalance),
+		limit:   uint32(limit),
+	}
+	wantTrustlines[assetString] = newTrustline
+
+	gotTrustlines, err := getTrustlines(&state, &change)
+	if err != nil {
+		t.Error(err)
+	}
+	if !assert.Equal(t, wantTrustlines, gotTrustlines) {
+		t.Fatalf("got trustlines %v, want trustlines %v", gotTrustlines, wantTrustlines)
+	}
+}
+
+func TestGetDataNotData(t *testing.T) {
+	wantData := make(map[string][]byte)
+	wantData["key"] = []byte("value")
+	state := accountState{
+		data: wantData,
+	}
+	change := xdr.LedgerEntryChange{
+		Type: xdr.LedgerEntryChangeTypeLedgerEntryState,
+		State: &xdr.LedgerEntry{
+			Data: xdr.LedgerEntryData{
+				Type:    xdr.LedgerEntryTypeAccount,
+				Account: &xdr.AccountEntry{},
+			},
+		},
+	}
+	gotData, err := getData(&state, &change)
+	if err != nil {
+		t.Error(err)
+	}
+	if !assert.Equal(t, wantData, gotData) {
+		t.Fatalf("got data %v, want data %v", gotData, wantData)
+	}
+}
+
+func TestGetDataRemoved(t *testing.T) {
+	originalData := make(map[string][]byte)
+	dataName := "name"
+	originalData[dataName] = []byte("0")
+	state := accountState{
+		data: originalData,
+	}
+	change := xdr.LedgerEntryChange{
+		Type: xdr.LedgerEntryChangeTypeLedgerEntryRemoved,
+		Removed: &xdr.LedgerKey{
+			Type: xdr.LedgerEntryTypeData,
+			Data: &xdr.LedgerKeyData{
+				DataName: xdr.String64(dataName),
+			},
+		},
+	}
+	wantData := make(map[string][]byte)
+	gotData, err := getData(&state, &change)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !assert.Equal(t, wantData, gotData) {
+		t.Fatalf("got data %v, want data %v", gotData, wantData)
+	}
+}
+
+func TestGetDataChanged(t *testing.T) {
+	originalData := make(map[string][]byte)
+	originalDataName := "originalName"
+	originalDataValue := []byte("originalValue")
+	originalData[originalDataName] = originalDataValue
+	state := accountState{
+		data: originalData,
+	}
+
+	newDataName := "newName"
+	newDataValue := []byte("newValue")
+	change := xdr.LedgerEntryChange{
+		Type: xdr.LedgerEntryChangeTypeLedgerEntryState,
+		State: &xdr.LedgerEntry{
+			Data: xdr.LedgerEntryData{
+				Type: xdr.LedgerEntryTypeData,
+				Data: &xdr.DataEntry{
+					DataName:  xdr.String64(newDataName),
+					DataValue: xdr.DataValue(newDataValue),
+				},
+			},
+		},
+	}
+
+	wantData := make(map[string][]byte)
+	wantData[originalDataName] = originalDataValue
+	wantData[newDataName] = newDataValue
+
+	gotData, err := getData(&state, &change)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !assert.Equal(t, wantData, gotData) {
+		t.Fatalf("got data %v, want data %v", gotData, wantData)
+	}
+}
