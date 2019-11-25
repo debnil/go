@@ -186,9 +186,7 @@ func makeTrustlines(state *accountState, change *xdr.LedgerEntryChange) (map[str
 	// If the change is removed, remove the corresponding trustline.
 	if change.Type == xdr.LedgerEntryChangeTypeLedgerEntryRemoved {
 		asset := change.MustRemoved().TrustLine.Asset.String()
-		if _, ok := trustlines[asset]; ok {
-			delete(trustlines, asset)
-		}
+		delete(trustlines, asset)
 		return trustlines, nil
 	}
 
@@ -231,9 +229,7 @@ func makeOffers(state *accountState, change *xdr.LedgerEntryChange) (map[uint32]
 	// If the change is removed, remove the corresponding offer.
 	if change.Type == xdr.LedgerEntryChangeTypeLedgerEntryRemoved {
 		id := uint32(change.MustRemoved().Offer.OfferId)
-		if _, ok := offers[id]; ok {
-			delete(offers, id)
-		}
+		delete(offers, id)
 		return offers, nil
 	}
 
@@ -277,9 +273,7 @@ func makeData(state *accountState, change *xdr.LedgerEntryChange) (map[string][]
 
 	if change.Type == xdr.LedgerEntryChangeTypeLedgerEntryRemoved {
 		name := string(change.MustRemoved().Data.DataName)
-		if _, ok := data[name]; ok {
-			delete(data, name)
-		}
+		delete(data, name)
 		return data, nil
 	}
 
