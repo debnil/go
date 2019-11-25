@@ -111,7 +111,7 @@ func (p *CurrentStateProcessor) ProcessState(ctx context.Context, store *support
 			}
 		}
 
-		accountID, err := getAccountID(&entry)
+		accountID, err := makeAccountID(&entry)
 		if err != nil {
 			return errors.Wrap(err, "could not get ledger account address")
 		}

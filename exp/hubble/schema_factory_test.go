@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetAccountIDFromState(t *testing.T) {
+func TestMakeAccountIDFromState(t *testing.T) {
 	wantAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
 	state := accountState{address: wantAddress}
 	change := xdr.LedgerEntryChange{
@@ -20,7 +20,7 @@ func TestGetAccountIDFromState(t *testing.T) {
 			},
 		},
 	}
-	gotAddress, err := getAccountID(&change, &state)
+	gotAddress, err := makeAccountID(&change, &state)
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,7 +29,7 @@ func TestGetAccountIDFromState(t *testing.T) {
 	}
 }
 
-func TestGetAccountIDFromChange(t *testing.T) {
+func TestMakeAccountIDFromChange(t *testing.T) {
 	wantAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
 	accountID, err := xdr.AddressToAccountId(wantAddress)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestGetAccountIDFromChange(t *testing.T) {
 			},
 		},
 	}
-	gotAddress, err := getAccountID(&change)
+	gotAddress, err := makeAccountID(&change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,7 +55,7 @@ func TestGetAccountIDFromChange(t *testing.T) {
 	}
 }
 
-func TestGetSeqnumFromNonRemoved(t *testing.T) {
+func TestMakeSeqnumFromNonRemoved(t *testing.T) {
 	wantSeqnum := uint32(2947523)
 	state := accountState{seqnum: 11}
 	change := xdr.LedgerEntryChange{
@@ -68,7 +68,7 @@ func TestGetSeqnumFromNonRemoved(t *testing.T) {
 			},
 		},
 	}
-	gotSeqnum, err := getSeqnum(&state, &change)
+	gotSeqnum, err := makeSeqnum(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,14 +77,14 @@ func TestGetSeqnumFromNonRemoved(t *testing.T) {
 	}
 }
 
-func TestGetSeqnumFromRemoved(t *testing.T) {
+func TestMakeSeqnumFromRemoved(t *testing.T) {
 	wantSeqnum := uint32(0)
 	state := accountState{seqnum: 11}
 	change := xdr.LedgerEntryChange{
 		Type:  xdr.LedgerEntryChangeTypeLedgerEntryRemoved,
 		State: &xdr.LedgerEntry{},
 	}
-	gotSeqnum, err := getSeqnum(&state, &change)
+	gotSeqnum, err := makeSeqnum(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -171,7 +171,7 @@ func TestGetAccountEntryNotRemoved(t *testing.T) {
 	}
 }
 
-func TestGetBalanceNotChanged(t *testing.T) {
+func TestMakeBalanceNotChanged(t *testing.T) {
 	wantBalance := uint32(999)
 	state := accountState{
 		balance: wantBalance,
@@ -183,7 +183,7 @@ func TestGetBalanceNotChanged(t *testing.T) {
 			Account: &xdr.LedgerKeyAccount{},
 		},
 	}
-	gotBalance, err := getBalance(&state, &change)
+	gotBalance, err := makeBalance(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -193,7 +193,7 @@ func TestGetBalanceNotChanged(t *testing.T) {
 
 }
 
-func TestGetBalanceChanged(t *testing.T) {
+func TestMakeBalanceChanged(t *testing.T) {
 	originalBalance := uint32(111)
 	wantBalance := uint32(222)
 	state := accountState{
@@ -210,7 +210,7 @@ func TestGetBalanceChanged(t *testing.T) {
 			},
 		},
 	}
-	gotBalance, err := getBalance(&state, &change)
+	gotBalance, err := makeBalance(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -219,7 +219,7 @@ func TestGetBalanceChanged(t *testing.T) {
 	}
 }
 
-func TestGetSignersNotAccount(t *testing.T) {
+func TestMakeSignersNotAccount(t *testing.T) {
 	wantSigners := []signer{}
 	wantSigners = append(wantSigners, signer{address: "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF", weight: uint32(1)})
 	state := accountState{
@@ -232,7 +232,7 @@ func TestGetSignersNotAccount(t *testing.T) {
 			Account: &xdr.LedgerKeyAccount{},
 		},
 	}
-	gotSigners, err := getSigners(&state, &change)
+	gotSigners, err := makeSigners(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -242,7 +242,7 @@ func TestGetSignersNotAccount(t *testing.T) {
 	}
 }
 
-func TestGetSignersNotChanged(t *testing.T) {
+func TestMakeSignersNotChanged(t *testing.T) {
 	wantAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
 	wantSigners := []signer{}
 	wantSigners = append(wantSigners, signer{address: wantAddress, weight: uint32(1)})
@@ -273,7 +273,7 @@ func TestGetSignersNotChanged(t *testing.T) {
 			},
 		},
 	}
-	gotSigners, err := getSigners(&state, &change)
+	gotSigners, err := makeSigners(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,7 +283,7 @@ func TestGetSignersNotChanged(t *testing.T) {
 	}
 }
 
-func TestGetSignersChanged(t *testing.T) {
+func TestMakeSignersChanged(t *testing.T) {
 	originalAddress := "GBFLTCDLOE6YQ74B66RH3S2UW5I2MKZ5VLTM75F4YMIWUIXRIFVNRNIF"
 	originalSigners := []signer{}
 	originalSigners = append(originalSigners, signer{address: originalAddress, weight: uint32(1)})
@@ -300,7 +300,7 @@ func TestGetSignersChanged(t *testing.T) {
 			},
 		},
 	}
-	gotSigners, err := getSigners(&state, &change)
+	gotSigners, err := makeSigners(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -309,7 +309,7 @@ func TestGetSignersChanged(t *testing.T) {
 	}
 }
 
-func TestGetTrustlinesNotTrustline(t *testing.T) {
+func TestMakeTrustlinesNotTrustline(t *testing.T) {
 	wantTrustlines := make(map[string]trustline)
 	asset := "USD"
 	newTrustline := trustline{
@@ -332,7 +332,7 @@ func TestGetTrustlinesNotTrustline(t *testing.T) {
 			},
 		},
 	}
-	gotTrustlines, err := getTrustlines(&state, &change)
+	gotTrustlines, err := makeTrustlines(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -341,7 +341,7 @@ func TestGetTrustlinesNotTrustline(t *testing.T) {
 	}
 }
 
-func TestGetTrustlinesRemoved(t *testing.T) {
+func TestMakeTrustlinesRemoved(t *testing.T) {
 	originalTrustlines := make(map[string]trustline)
 	assetCode := "USD"
 	assetIssuer := "GBDT3K42LOPSHNAEHEJ6AVPADIJ4MAR64QEKKW2LQPBSKLYD22KUEH4P"
@@ -372,7 +372,7 @@ func TestGetTrustlinesRemoved(t *testing.T) {
 		},
 	}
 	wantTrustlines := make(map[string]trustline)
-	gotTrustlines, err := getTrustlines(&state, &change)
+	gotTrustlines, err := makeTrustlines(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -382,7 +382,7 @@ func TestGetTrustlinesRemoved(t *testing.T) {
 	}
 }
 
-func TestGetTrustlinesChanged(t *testing.T) {
+func TestMakeTrustlinesChanged(t *testing.T) {
 	assetCode := "USD"
 	assetIssuer := "GBDT3K42LOPSHNAEHEJ6AVPADIJ4MAR64QEKKW2LQPBSKLYD22KUEH4P"
 	asset := xdr.MustNewCreditAsset(assetCode, assetIssuer)
@@ -427,7 +427,7 @@ func TestGetTrustlinesChanged(t *testing.T) {
 	}
 	wantTrustlines[assetString] = newTrustline
 
-	gotTrustlines, err := getTrustlines(&state, &change)
+	gotTrustlines, err := makeTrustlines(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -436,7 +436,7 @@ func TestGetTrustlinesChanged(t *testing.T) {
 	}
 }
 
-func TestGetDataNotData(t *testing.T) {
+func TestMakeDataNotData(t *testing.T) {
 	wantData := make(map[string][]byte)
 	wantData["key"] = []byte("value")
 	state := accountState{
@@ -451,7 +451,7 @@ func TestGetDataNotData(t *testing.T) {
 			},
 		},
 	}
-	gotData, err := getData(&state, &change)
+	gotData, err := makeData(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -460,7 +460,7 @@ func TestGetDataNotData(t *testing.T) {
 	}
 }
 
-func TestGetDataRemoved(t *testing.T) {
+func TestMakeDataRemoved(t *testing.T) {
 	originalData := make(map[string][]byte)
 	dataName := "name"
 	originalData[dataName] = []byte("0")
@@ -477,7 +477,7 @@ func TestGetDataRemoved(t *testing.T) {
 		},
 	}
 	wantData := make(map[string][]byte)
-	gotData, err := getData(&state, &change)
+	gotData, err := makeData(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}
@@ -487,7 +487,7 @@ func TestGetDataRemoved(t *testing.T) {
 	}
 }
 
-func TestGetDataChanged(t *testing.T) {
+func TestMakeDataChanged(t *testing.T) {
 	originalData := make(map[string][]byte)
 	originalDataName := "originalName"
 	originalDataValue := []byte("originalValue")
@@ -515,7 +515,7 @@ func TestGetDataChanged(t *testing.T) {
 	wantData[originalDataName] = originalDataValue
 	wantData[newDataName] = newDataValue
 
-	gotData, err := getData(&state, &change)
+	gotData, err := makeData(&state, &change)
 	if err != nil {
 		t.Error(err)
 	}

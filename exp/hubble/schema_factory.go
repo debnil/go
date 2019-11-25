@@ -47,43 +47,43 @@ type offer struct {
 func makeNewAccountState(state *accountState, change *xdr.LedgerEntryChange) (*accountState, error) {
 	// TODO: Handle account removal.
 	var newAccountState accountState
-	address, err := getAccountID(change, state)
+	address, err := makeAccountID(change, state)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get address")
 	}
 	state.address = address
 
-	seqnum, err := getSeqnum(state, change)
+	seqnum, err := makeSeqnum(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get seqnum")
 	}
 	newAccountState.seqnum = seqnum
 
-	balance, err := getBalance(state, change)
+	balance, err := makeBalance(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get balance")
 	}
 	newAccountState.balance = balance
 
-	signers, err := getSigners(state, change)
+	signers, err := makeSigners(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not set signers")
 	}
 	newAccountState.signers = signers
 
-	trustlines, err := getTrustlines(state, change)
+	trustlines, err := makeTrustlines(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not update trustlines")
 	}
 	newAccountState.trustlines = trustlines
 
-	offers, err := getOffers(state, change)
+	offers, err := makeOffers(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not update offers")
 	}
 	newAccountState.offers = offers
 
-	data, err := getData(state, change)
+	data, err := makeData(state, change)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not update data")
 	}
@@ -92,7 +92,7 @@ func makeNewAccountState(state *accountState, change *xdr.LedgerEntryChange) (*a
 	return &newAccountState, nil
 }
 
-func getAccountID(change *xdr.LedgerEntryChange, states ...*accountState) (string, error) {
+func makeAccountID(change *xdr.LedgerEntryChange, states ...*accountState) (string, error) {
 	// If the address has already been set on the account state, we return it.
 	// We pass this as a optional parameter, so we can use this function more easily in the processor.
 	if len(states) == 1 {
@@ -116,7 +116,7 @@ func getAccountID(change *xdr.LedgerEntryChange, states ...*accountState) (strin
 	return accountID.Address(), nil
 }
 
-func getSeqnum(state *accountState, change *xdr.LedgerEntryChange) (uint32, error) {
+func makeSeqnum(state *accountState, change *xdr.LedgerEntryChange) (uint32, error) {
 	var seqnum xdr.Uint32
 	switch entryType := change.Type; entryType {
 	case xdr.LedgerEntryChangeTypeLedgerEntryCreated:
@@ -136,7 +136,7 @@ func getSeqnum(state *accountState, change *xdr.LedgerEntryChange) (uint32, erro
 	return uint32(seqnum), nil
 }
 
-func getBalance(state *accountState, change *xdr.LedgerEntryChange) (uint32, error) {
+func makeBalance(state *accountState, change *xdr.LedgerEntryChange) (uint32, error) {
 	account, err := getAccountEntry(change)
 	if err != nil {
 		return 0, err
@@ -150,7 +150,7 @@ func getBalance(state *accountState, change *xdr.LedgerEntryChange) (uint32, err
 	return uint32(account.Balance), nil
 }
 
-func getSigners(state *accountState, change *xdr.LedgerEntryChange) ([]signer, error) {
+func makeSigners(state *accountState, change *xdr.LedgerEntryChange) ([]signer, error) {
 	account, err := getAccountEntry(change)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func getSigners(state *accountState, change *xdr.LedgerEntryChange) ([]signer, e
 	return signers, nil
 }
 
-func getTrustlines(state *accountState, change *xdr.LedgerEntryChange) (map[string]trustline, error) {
+func makeTrustlines(state *accountState, change *xdr.LedgerEntryChange) (map[string]trustline, error) {
 	if change.EntryType() != xdr.LedgerEntryTypeTrustline {
 		return state.trustlines, nil
 	}
@@ -217,7 +217,7 @@ func getTrustlines(state *accountState, change *xdr.LedgerEntryChange) (map[stri
 	return trustlines, nil
 }
 
-func getOffers(state *accountState, change *xdr.LedgerEntryChange) (map[uint32]offer, error) {
+func makeOffers(state *accountState, change *xdr.LedgerEntryChange) (map[uint32]offer, error) {
 	if change.EntryType() != xdr.LedgerEntryTypeOffer {
 		return state.offers, nil
 	}
@@ -265,7 +265,7 @@ func getOffers(state *accountState, change *xdr.LedgerEntryChange) (map[uint32]o
 	return offers, nil
 }
 
-func getData(state *accountState, change *xdr.LedgerEntryChange) (map[string][]byte, error) {
+func makeData(state *accountState, change *xdr.LedgerEntryChange) (map[string][]byte, error) {
 	if change.EntryType() != xdr.LedgerEntryTypeData {
 		return state.data, nil
 	}
