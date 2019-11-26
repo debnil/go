@@ -19,15 +19,19 @@ const elasticSearchDefaultIndex = "testindex"
 
 func main() {
 	// TODO: Remove pipelineTypePtr flag once current state pipeline and elastic search are merged.
-	typeFlagStr := fmt.Sprintf("type of state pipeline, choices are %s and %s", hubble.PipelineDefaultType, hubble.PipelineSearchType)
+	typeFlagStr := fmt.Sprintf("type of state pipeline, choices are %s, %s, and %s", hubble.PipelineDefaultType, hubble.PipelineSearchType, hubble.PipelineCurrentStateType)
 	pipelineTypePtr := flag.String("type", hubble.PipelineDefaultType, typeFlagStr)
 	esURLPtr := flag.String("esurl", elasticSearchDefaultURL, "URL of running ElasticSearch server")
 	esIndexPtr := flag.String("esindex", elasticSearchDefaultIndex, "index for ElasticSearch")
 	flag.Parse()
 
+	typesDict := make(map[string]struct{})
+	typesDict[hubble.PipelineDefaultType] = struct{}{}
+	typesDict[hubble.PipelineSearchType] = struct{}{}
+	typesDict[hubble.PipelineCurrentStateType] = struct{}{}
+
 	pipelineType := *pipelineTypePtr
-	// Validate that pipeline type is either "current" or "search".
-	if (pipelineType != hubble.PipelineDefaultType) && (pipelineType != hubble.PipelineSearchType) {
+	if _, ok := typesDict[pipelineType]; !ok {
 		panic(errors.Errorf("invalid pipeline type %s, must be '%s' or '%s'", pipelineType, hubble.PipelineDefaultType, hubble.PipelineSearchType))
 	}
 
