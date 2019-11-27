@@ -48,7 +48,7 @@ func (p *ESProcessor) ProcessState(ctx context.Context, store *supportPipeline.S
 		// TODO: Move this to a separate processor. Currently, this is not possible,
 		// as the ingestion system does not read and write custom structs
 		// between pipeline nodes.
-		entryJSONStr, err := serializeLedgerEntryChange(entry)
+		entryJSONStr, err := entryChangeToJSON(entry)
 		if err != nil {
 			return errors.Wrap(err, "couldn't convert ledgerentry to json")
 		}
