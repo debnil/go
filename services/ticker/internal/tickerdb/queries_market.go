@@ -12,11 +12,21 @@ func (s *TickerSession) RetrieveMarketData() (markets []Market, err error) {
 	return
 }
 
+// RetrieveMarketDataNew retrieves the 24h- and 7d aggregated market data for all
+// markets active in this period. It assumes industry standards of base and counter,
+// rather than flipping the computation, as in the previous query.
+// Note: This function isn't currently called.
+func (s *TickerSession) RetrieveMarketDataNew() (markets []Market, err error) {
+	err = s.SelectRaw(&markets, marketQueryNew)
+	return
+}
+
 // RetrievePartialAggMarkets retrieves the aggregated market data for all
 // markets (or for a specific one if PairName != nil) for a given period.
 func (s *TickerSession) RetrievePartialAggMarkets(
 	pairName *string,
 	numHoursAgo int,
+	isNewEndpoint *bool,
 ) (partialMkts []PartialMarket, err error) {
 	var bCode, cCode string
 	sqlTrue := new(string)
@@ -27,15 +37,34 @@ func (s *TickerSession) RetrievePartialAggMarkets(
 	}
 
 	// parse base and asset codes and add them as SQL parameters
+	var newQuery bool
 	if pairName != nil {
-		bCode, cCode, err = getBaseAndCounterCodes(*pairName)
+		// if new endpoint flag was not provided, assume the old endpoint
+		// behavior is desired
+		var newEndpoint bool
+		if isNewEndpoint != nil {
+			newEndpoint = *isNewEndpoint
+		}
+
+		bCode, cCode, newQuery, err = getBaseAndCounterCodes(*pairName, newEndpoint)
 		if err != nil {
 			return
 		}
 		optVars = append(optVars, []optionalVar{
-			optionalVar{"bAsset.code", &bCode},
-			optionalVar{"cAsset.code", &cCode},
+			optionalVar{"bAsset.code", &cCode},
+			optionalVar{"cAsset.code", &bCode},
 		}...)
+		// if newQuery {
+		// 	optVars = append(optVars, []optionalVar{
+		// 		optionalVar{"bAsset.code", &cCode},
+		// 		optionalVar{"cAsset.code", &bCode},
+		// 	}...)
+		// } else {
+		// 	optVars = append(optVars, []optionalVar{
+		// 		optionalVar{"bAsset.code", &bCode},
+		// 		optionalVar{"cAsset.code", &cCode},
+		// 	}...)
+		// }
 	}
 
 	where, args := generateWhereClause(optVars)
@@ -43,13 +72,21 @@ func (s *TickerSession) RetrievePartialAggMarkets(
 		" AND t.ledger_close_time > now() - interval '%d hours'",
 		numHoursAgo,
 	)
-	q := strings.Replace(aggMarketQuery, "__WHERECLAUSE__", where, -1)
+
+	var q string
+	if newQuery {
+		q = strings.Replace(aggMarketQueryNew, "__WHERECLAUSE__", where, -1)
+	} else {
+		q = strings.Replace(aggMarketQuery, "__WHERECLAUSE__", where, -1)
+	}
 	q = strings.Replace(q, "__NUMHOURS__", fmt.Sprintf("%d", numHoursAgo), -1)
+	fmt.Println(q)
 
 	argsInterface := make([]interface{}, len(args))
 	for i, v := range args {
 		argsInterface[i] = v
 	}
+	fmt.Println(argsInterface)
 
 	err = s.SelectRaw(&partialMkts, q, argsInterface...)
 	return
@@ -191,6 +228,8 @@ FROM (
 	LEFT JOIN aggregated_orderbook AS os ON t2.trade_pair_name = os.trade_pair_name;
 `
 
+var marketQueryNew = ``
+
 var partialMarketQuery = `
 SELECT
 	concat(bAsset.code, ':', bAsset.issuer_account, ' / ', cAsset.code, ':', cAsset.issuer_account) as trade_pair_name,
@@ -264,6 +303,64 @@ FROM (
 		(array_agg(t.price ORDER BY t.ledger_close_time ASC))[1] AS open_price,
 		(array_agg(t.price ORDER BY t.ledger_close_time DESC))[1] AS last_price,
 		((array_agg(t.price ORDER BY t.ledger_close_time DESC))[1] - (array_agg(t.price ORDER BY t.ledger_close_time ASC))[1]) AS price_change,
+		(now() - interval '__NUMHOURS__ hours') AS interval_start,
+		min(t.ledger_close_time) AS first_ledger_close_time,
+		max(t.ledger_close_time) AS last_ledger_close_time
+	FROM trades AS t
+		LEFT JOIN orderbook_stats AS os ON t.base_asset_id = os.base_asset_id AND t.counter_asset_id = os.counter_asset_id
+		JOIN assets AS bAsset ON t.base_asset_id = bAsset.id
+		JOIN assets AS cAsset on t.counter_asset_id = cAsset.id
+	__WHERECLAUSE__
+	GROUP BY trade_pair_name
+) t1 LEFT JOIN aggregated_orderbook AS aob ON t1.trade_pair_name = aob.trade_pair_name;`
+
+var aggMarketQueryNew = `
+SELECT
+	-- Data in the trades table has already been swapped between base and counter.
+	t1.real_trade_pair_name AS trade_pair_name,
+	ROUND(CAST(t1.base_volume AS decimal), 5) AS base_volume,
+	ROUND(CAST(t1.counter_volume AS decimal), 5) AS counter_volume,
+	t1.trade_count,
+	ROUND(CAST(t1.highest_price AS decimal), 5) AS highest_price,
+	ROUND(CAST(t1.lowest_price AS decimal), 5) AS lowest_price,
+	ROUND(CAST(t1.open_price AS decimal), 5) AS open_price,
+	ROUND(CAST(t1.last_price AS decimal), 5) AS last_price,
+	ROUND(CAST(t1.price_change AS decimal), 5) AS price_change,
+	t1.interval_start,
+	t1.first_ledger_close_time,
+	t1.last_ledger_close_time,
+	-- We swap base and counter data from the aggregated orderbook.
+	-- TODO: How do we do this?
+	COALESCE(aob.base_asset_code, '') as counter_asset_code,
+	COALESCE(aob.counter_asset_code, '') as base_asset_code,
+	COALESCE(aob.num_bids, 0) AS num_bids,
+	COALESCE(aob.bid_volume, 0.0) AS bid_volume,
+	COALESCE(aob.highest_bid, 0.0) AS highest_bid,
+	COALESCE(aob.num_asks, 0) AS num_asks,
+	COALESCE(aob.ask_volume, 0.0) AS ask_volume,
+	COALESCE(aob.lowest_ask, 0.0) AS lowest_ask
+FROM (
+	-- We swap the base and counter to keep the logic consistent with the
+	-- database and inputs.
+	SELECT
+		concat(
+			COALESCE(NULLIF(cAsset.anchor_asset_code, ''), cAsset.code),
+			'_',
+			COALESCE(NULLIF(bAsset.anchor_asset_code, ''), bAsset.code)
+		) as real_trade_pair_name,
+		concat(
+			COALESCE(NULLIF(bAsset.anchor_asset_code, ''), bAsset.code),
+			'_',
+			COALESCE(NULLIF(cAsset.anchor_asset_code, ''), cAsset.code)
+		) as trade_pair_name,
+		sum(1/t.base_amount) AS counter_volume,
+		sum(1/t.counter_amount) AS base_volume,
+		count(t.base_amount) AS trade_count,
+		1/max(t.price) AS lowest_price,
+		1/min(t.price) AS highest_price,
+		1/((array_agg(t.price ORDER BY t.ledger_close_time ASC))[1]) AS open_price,
+		1/((array_agg(t.price ORDER BY t.ledger_close_time DESC))[1]) AS last_price,
+		(1/((array_agg(t.price ORDER BY t.ledger_close_time DESC))[1]) - 1/((array_agg(t.price ORDER BY t.ledger_close_time ASC))[1])) AS price_change,
 		(now() - interval '__NUMHOURS__ hours') AS interval_start,
 		min(t.ledger_close_time) AS first_ledger_close_time,
 		max(t.ledger_close_time) AS last_ledger_close_time

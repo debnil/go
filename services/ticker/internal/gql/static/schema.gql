@@ -22,10 +22,13 @@ type Query {
 
 	# retrieve aggregated trade stats for the last <numHoursAgo>
 	# hours. optionally provide the name of the trade pair (e.g.
-	# XLM_BTC) for filtering results.
+	# XLM_BTC) for filtering results. optionally provide whether
+	# or not the query comes from the new version of the endpoint.
+	# this affects how the trade pair is interpreted.
 	ticker(
 		pairName: String
 		numHoursAgo: Int
+		isNewEndpoint: Boolean
 	): [AggregatedMarket]!
 }
 

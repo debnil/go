@@ -577,7 +577,8 @@ func TestRetrievePartialMarkets(t *testing.T) {
 	assert.Equal(t, 0.2, btceth2Mkt.LowestAsk)
 
 	// Now let's use the same data, but aggregating by asset pair
-	partialAggMkts, err := session.RetrievePartialAggMarkets(nil, 12)
+	var isNewEndpoint bool = false
+	partialAggMkts, err := session.RetrievePartialAggMarkets(nil, 12, &isNewEndpoint)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(partialAggMkts))
 
@@ -603,7 +604,7 @@ func TestRetrievePartialMarkets(t *testing.T) {
 	// Validate the pair name parsing:
 	pairName := new(string)
 	*pairName = "BTC_ETH"
-	partialAggMkts, err = session.RetrievePartialAggMarkets(pairName, 12)
+	partialAggMkts, err = session.RetrievePartialAggMarkets(pairName, 12, &isNewEndpoint)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(partialAggMkts))
 	assert.Equal(t, int32(3), partialAggMkts[0].TradeCount)
@@ -825,7 +826,8 @@ func TestPreferAnchorAssetCode(t *testing.T) {
 		require.Equal(t, "XLM_EUR", mkt.TradePair)
 	}
 
-	partialAggMkts, err := session.RetrievePartialAggMarkets(nil, 168)
+	var isNewEndpoint bool = false
+	partialAggMkts, err := session.RetrievePartialAggMarkets(nil, 168, &isNewEndpoint)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(partialAggMkts))
 	for _, aggMkt := range partialAggMkts {

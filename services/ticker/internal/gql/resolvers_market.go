@@ -44,8 +44,9 @@ func (r *resolver) Markets(args struct {
 // Ticker resolves the ticker() GraphQL query (TODO)
 func (r *resolver) Ticker(
 	args struct {
-		PairName    *string
-		NumHoursAgo *int32
+		PairName      *string
+		NumHoursAgo   *int32
+		IsNewEndpoint *bool
 	},
 ) (partialMarkets []*partialMarket, err error) {
 	numHours, err := validateNumHoursAgo(args.NumHoursAgo)
@@ -53,7 +54,7 @@ func (r *resolver) Ticker(
 		return
 	}
 
-	dbMarkets, err := r.db.RetrievePartialAggMarkets(args.PairName, numHours)
+	dbMarkets, err := r.db.RetrievePartialAggMarkets(args.PairName, numHours, args.IsNewEndpoint)
 	if err != nil {
 		// obfuscating sql errors to avoid exposing underlying
 		// implementation

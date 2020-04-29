@@ -101,21 +101,32 @@ func generateWhereClause(optVars []optionalVar) (clause string, args []string) {
 }
 
 // getBaseAndCounterCodes takes an asset pair name string (e.g: XLM_BTC)
-// and returns the parsed asset codes (e.g.: XLM, BTC). It also reverses
-// the assets, according to the following rules:
+// and returns the parsed asset codes (e.g.: XLM, BTC).
+// This function supports two different approaches, based on whether the new
+// or old endpoint is calling it.
+//
+// The old endpoint expects the assets reversed, according to the following rules:
 // 1. XLM is always the base asset
 // 2. If XLM is not in the pair, the assets should be ordered alphabetically
-func getBaseAndCounterCodes(pairName string) (string, string, error) {
+//
+// The new endpoint simply expects the pair name split, formatted as base-counter.
+func getBaseAndCounterCodes(
+	pairName string,
+	isNewEndpoint bool,
+) (string, string, bool, error) {
 	assets := strings.Split(pairName, "_")
 	if len(assets) != 2 {
-		return "", "", errors.New("invalid asset pair name")
+		return "", "", false, errors.New("invalid asset pair name")
 	}
 
 	if (assets[1] == "XLM") || (assets[0] != "XLM" && assets[0] > assets[1]) {
-		return assets[1], assets[0], nil
+		// We need to use the "new" market query, to rearrange the base and counter codes.
+		if isNewEndpoint {
+			return assets[0], assets[1], true, nil
+		}
+		return assets[1], assets[0], false, nil
 	}
-
-	return assets[0], assets[1], nil
+	return assets[0], assets[1], false, nil
 }
 
 // performUpsertQuery introspects a dbStruct interface{} and performs an insert query
